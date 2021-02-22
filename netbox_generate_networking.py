@@ -16,6 +16,10 @@ Generate networking configuration for device or VM.
 def assume_ip_gateway(network):
   return str(ipaddress.ip_network(network,False)[1]).split('/')[0]
 
+def debug(*msg):
+  return
+  print(*msg, file=stderr)
+
 def warn(*msg):
   print(*msg, file=stderr)
 
@@ -77,8 +81,8 @@ if dev:
     if not iface.lag:
       continue
     lag_ifaces[iface.lag.name].append(iface.name)
+    debug("blacklist.append", iface.name)
     blacklist.append(iface.name)
-  blacklist += lag_ifaces.keys()
   for lag_parent, lag_children in lag_ifaces.items():
     res['networking'][lag_parent]['bond_slaves'] = lag_children
     for lag_child in lag_children:
@@ -93,13 +97,13 @@ for iface in ifaces:
   if iface.mac_address:
     res['networking'][iface.name]['ether'] = iface.mac_address.lower()
 
-  # if we encounter a 'bond0' interface, assume device is hypervisor or cluster node
-  # create vlan interfaces and associated bridge interfaces
+  # if we encounter tagged LACP interface, assume device is hypervisor or cluster node.
+  # create vlan interfaces and associated bridge interfaces.
   if iface.mode and iface.mode.value == 'tagged' and not iface.lag:
     for vlan in iface.tagged_vlans:
       if 'vlan%d' % vlan.vid not in res['networking']:
         res['networking']['vlan%d' % vlan.vid] = {}
-      res['networking']['vlan%d' % vlan.vid]['vlan-iface'] = 'bond0'
+      res['networking']['vlan%d' % vlan.vid]['vlan-iface'] = iface.name 
       res['networking']['vlan%d' % vlan.vid]['vlan-id'] = vlan.vid
 
       if 'brVlan%d' % vlan.vid not in res['networking']:
@@ -108,6 +112,7 @@ for iface in ifaces:
  
   # rest is for non-lag interfaces
   if iface.name in blacklist:
+    debug("blacklist iface", iface.name)
     continue
 
   # lookup ip address, if interface has one
