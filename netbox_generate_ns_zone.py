@@ -120,7 +120,8 @@ $TTL 120
 """
 
   res = zone_template.format(origin=ZONE, serial=int(time.time()))
-  for host, ip in records.items():
+  for host, ip in sorted(records.items()):
+    if ip:
       res += "%s IN A %s\n" % (host, ip)
 
   print(res)
