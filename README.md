@@ -4,7 +4,7 @@ Collection of assorted tools and CLI scripts for NetBox. [1]
 ## Installation and requirents
 1. `pip3 install pynetbox` [2]
 2. Create your "env" file. (see. `env.example`)
-3. `. ./env`
+3. `. ~/Path/To/netbox-tools/env`
 4. ...
 5. Profit!
 
