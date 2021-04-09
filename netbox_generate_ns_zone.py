@@ -3,6 +3,7 @@
 from sys import stderr,exit,argv
 import os,pynetbox,time
 from pprint import pprint
+from itertools import chain
 
 # display error & bail out
 def fail(*messages):
@@ -33,7 +34,7 @@ def get_forward_records(nb, ZONE):
   ips = nb.ipam.ip_addresses.filter("."+ZONE)
 
   # vms and devices first
-  for x in vms+devices:
+  for x in chain(vms,devices):
     name = x.name.replace("."+ZONE,"")
     if x.primary_ip4 == None:
       warn("found entry without primary ip address", x.name)
