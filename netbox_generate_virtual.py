@@ -47,7 +47,7 @@ res['virtual']['fqdn'] = ip.dns_name
 res['virtual']['uuid'] = vm.custom_fields['uuid']
 res['virtual']['storage'] = vm.custom_fields['storage']
 res['virtual']['cpus'] = vm['vcpus']
-res['virtual']['ram_size'] = vm['memory']
+res['virtual']['ram'] = vm['memory']
 res['virtual']['disk_size'] = vm['disk']
 if 'cluster' in vm:
   res['virtual']['cluster'] = vm['cluster']['name']
