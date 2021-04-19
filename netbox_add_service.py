@@ -71,7 +71,7 @@ def main():
   req = {
           'name': SERVICE,
           'protocol': PROTO,
-          'port': PORT,
+          'ports': [PORT],
           }
   if vm != None:
     req['virtual_machine'] = vm.id
