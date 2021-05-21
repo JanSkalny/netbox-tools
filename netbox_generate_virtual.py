@@ -49,12 +49,12 @@ res['virtual']['storage'] = vm.custom_fields['storage']
 res['virtual']['cpus'] = vm['vcpus']
 res['virtual']['ram'] = vm['memory']
 res['virtual']['disk_size'] = vm['disk']
-if 'cluster' in vm:
+if vm['cluster']:
   res['virtual']['cluster'] = vm['cluster']['name']
   cluster_nodes = nb.dcim.devices.filter(cluster_id=vm['cluster']['id'])
   if len(cluster_nodes) == 0:
     fail("cluster without nodes!")
-  chosen_node = cluster_nodes[0]
+  chosen_node = list(cluster_nodes)[0]
   res['virtual']['host'] = chosen_node['name']
 
 print("# generated from netbox. do not change manually")
