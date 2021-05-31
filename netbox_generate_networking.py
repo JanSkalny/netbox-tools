@@ -61,6 +61,8 @@ if dev:
   config_context = dev['config_context']
   primary_addr = dev['primary_ip']['address']
 
+ifaces = list(ifaces)
+
 res = { 'networking': {} }
 if config_context and 'networking' in config_context:
   res['networking'] = config_context.networking
