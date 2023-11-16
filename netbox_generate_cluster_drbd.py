@@ -58,7 +58,7 @@ chosen_node = list(cluster_nodes)[0]
 preseed_host_fqdn = None
 if '.' in chosen_node.name:
   preseed_host_fqdn = chosen_node.name
-elif 'fqdn' in chosen_node.custom_fields and chosen_node.custom_fields['fqdn'] and '.' in chosen_node.custom_fields['fqdn']:
+elif 'fqdn' in chosen_node.custom_fields and '.' in chosen_node.custom_fields['fqdn']:
   preseed_host_fqdn = chosen_node.custom_fields['fqdn']
 else:
   chosen_node.primary_ip.full_details()
@@ -81,10 +81,6 @@ if args.fqdn:
     fail('failed to find fqdn for vm')
 else:
   fqdn = vm.name
-
-# make sure vm is in planned, staging or active phase
-if str(vm.status) not in ['Planned','Staged','Active']:
-  fail(vm.name, 'is in invalid state', vm.status)
 
 # construct "virtual" configuration
 res = {

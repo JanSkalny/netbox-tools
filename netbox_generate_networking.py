@@ -55,24 +55,35 @@ config_context = None
 if vm:
   ifaces = nb.virtualization.interfaces.filter(virtual_machine=FQDN)
   config_context = vm['config_context']
+  if not vm.primary_ip:
+    fail('!! virtual machine without primary ip', vm, dict(vm))
   primary_addr = vm['primary_ip']['address']
 if dev:
   ifaces = nb.dcim.interfaces.filter(device=FQDN)
   config_context = dev['config_context']
+  if not dev.primary_ip:
+    fail('!! device without primary ip', dev)
   primary_addr = dev['primary_ip']['address']
 
 ifaces = list(ifaces)
 
 res = { 'networking': {} }
 if config_context and 'networking' in config_context:
-  res['networking'] = config_context.networking
+  res['networking'] = config_context['networking']
 
 lag_ifaces = defaultdict(list)
 blacklist = [] 
 
+
 # make sure all non-oob mgmt ifaces are in output
 for iface in ifaces:
   if dev and iface.mgmt_only:
+    continue
+  # ignore all FC interfaces
+  if 'type' in iface and iface.type and re.match(r'.*fc\-.*',iface.type.value):
+    continue
+  # ignore disabled interfaces
+  if not iface.enabled:
     continue
   if iface.name not in res['networking']:
     res['networking'][iface.name] = {}
@@ -94,9 +105,12 @@ for iface in ifaces:
   # ignore management interfaces
   if dev and iface.mgmt_only:
     continue
+  # ignore all FC interfaces
+  if 'type' in iface and iface.type and re.match(r'.*fc\-.*',iface.type.value):
+    continue
 
   # mac address of interface
-  if iface.mac_address:
+  if iface.mac_address and iface.name in res['networking']:
     res['networking'][iface.name]['ether'] = iface.mac_address.lower()
 
   # if we encounter tagged LACP interface, assume device is hypervisor or cluster node.
@@ -136,6 +150,12 @@ for iface in ifaces:
   # for vm, generate matching 'virtual_host_iface'
   if vm:
     res['networking'][iface.name]['virtual_host_iface'] = 'brVlan%d' % iface.untagged_vlan.vid
+
+# make sure vm is in planned, staging or active phase
+if vm and str(vm.status) not in ['Planned','Staged','Active']:
+  fail(vm.name, 'is in invalid state', vm.status)
+if dev and str(dev.status) not in ['Planned','Staged','Active']:
+  fail(dev.name, 'is in invalid state', dev.status)
 
 # output
 print("# generated from netbox. do not change manually")

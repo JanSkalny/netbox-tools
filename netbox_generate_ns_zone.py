@@ -16,13 +16,14 @@ def warn(*messages):
 
 
 
-doc = """ 
+doc = """
 Generate NS zone file from netbox IPs, VMs, devices and service names.
 
 ## Usage:
 %s ZONE
 
 """ % argv[0]
+
 
 def get_forward_records(nb, ZONE):
   records = {}
@@ -40,7 +41,7 @@ def get_forward_records(nb, ZONE):
       warn("found entry without primary ip address", x.name)
     else:
       records[name] = x.primary_ip4.address.split('/')[0]
- 
+
   for x in services:
     name = x.name.replace("."+ZONE,"")
     ip = None
@@ -59,17 +60,24 @@ def get_forward_records(nb, ZONE):
     if ip == None:
       warn("service without ip address!", x.name)
     if name in records and records[name] != ip:
-      warn("service name conflit with different address", name, records[name], ip)
+      warn("service name conflit with different address", name, records[name], "using service address", ip)
+      # service name has priority
+      records[name] = ip
     else:
       records[name] = ip
 
   # names not used by any services or vms or devices
   for x in ips:
+    if x.vrf:
+      continue
     name = x.dns_name.replace("."+ZONE,"")
+    if name == '':
+      warn('empty name detected', x)
+      continue
     if name not in records:
       records[name] = x.address.split('/')[0]
-    else:
-      warn("ignored ipam record", x.dns_name, x.address)
+    #else:
+    #  warn("ignored ipam record", x.dns_name, x.address)
 
   return records
 
@@ -81,7 +89,9 @@ def get_reverse_records(nb, ZONE):
 
   ips = nb.ipam.ip_addresses.filter(ip+".")
 
-  pprint(ips)
+  for ip in ips:
+    if '.' in ip.dns_name:
+      records[ip.dns_name] = int(ip.address.split('/')[0].split('.')[-1])
 
   return records
 
@@ -89,7 +99,7 @@ def get_reverse_records(nb, ZONE):
 def main():
   # parse inputs
   if len(argv) < 2:
-    fail("error, invalid number of args!\n%s" % doc) 
+    fail("error, invalid number of args!\n%s" % doc)
 
   ZONE = argv[1]
   nb = pynetbox.api(os.getenv('NETBOX_API_URL'), token=os.getenv('NETBOX_TOKEN'))
@@ -98,11 +108,33 @@ def main():
 
   if ZONE.endswith('.in-addr.arpa'):
     records = get_reverse_records(nb, ZONE)
+    zone_template = """
+$ORIGIN {origin}.
+$TTL 86400
+
+@ IN SOA ns.{zone}. admin.{zone}. (
+ {serial} ; serial
+ 900 ; refresh
+ 900 ; retry
+ 2419200 ; expire
+ 120 ; minimum ttl
+)
+
+$TTL 120
+
+@ IN NS ns.{zone}.
+
+1 IN PTR . ;
+"""
+
+    res = zone_template.format(origin=ZONE, serial=int(time.time()), zone='.'.join(list(records.items())[0][0].split('.')[1:]))
+    for host, ip_num in sorted(records.items(), key=lambda x: x[1]):
+      res += "%s IN PTR %s. ;\n" % (ip_num, host)
+
+    print(res)
   else:
     records = get_forward_records(nb, ZONE)
-
-
-  zone_template = """
+    zone_template = """
 $ORIGIN {origin}.
 $TTL 86400
 
@@ -120,12 +152,12 @@ $TTL 120
 
 """
 
-  res = zone_template.format(origin=ZONE, serial=int(time.time()))
-  for host, ip in sorted(records.items()):
-    if ip:
-      res += "%s IN A %s\n" % (host, ip)
+    res = zone_template.format(origin=ZONE, serial=int(time.time()))
+    for host, ip in sorted(records.items()):
+      if ip:
+        res += "%s IN A %s\n" % (host, ip)
 
-  print(res)
+    print(res)
 
 if __name__ == "__main__":
   main()
