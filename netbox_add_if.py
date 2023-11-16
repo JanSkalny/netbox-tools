@@ -42,6 +42,7 @@ def main():
   parser.add_argument('-f', '--fqdn', help='FQDN for IP address')
   parser.add_argument('-P', '--parent', help='Set parent interface')
   parser.add_argument('-n', '--net', help='Manualy select preffix (for interfaces without VLANs, eg. tunnels)', default=None)
+  parser.add_argument('-D', '--no-dns-name', help='Don\'t assign DNS name to IP address', default=False, action='store_true')
 
   args = parser.parse_args()
 
@@ -209,8 +210,9 @@ def main():
             'family': 4,
             'assigned_object_type': iface_type,
             'assigned_object_id': iface.id,
-            'dns_name': fqdn,
             }
+    if args.no_dns_name == False:
+      ip_data['dns_name'] = fqdn
     ip = nb.ipam.ip_addresses.create(ip_data)
 
     if args.primary:

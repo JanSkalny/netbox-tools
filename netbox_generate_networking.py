@@ -131,6 +131,10 @@ for iface in ifaces:
     debug("blacklist iface", iface.name)
     continue
 
+  # non-default mtu?
+  if iface.mtu:
+    res['networking'][iface.name]['mtu'] = iface.mtu
+
   # lookup ip address, if interface has one
   ip = None
   if dev:
