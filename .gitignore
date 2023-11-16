@@ -1,3 +1,4 @@
 env
 ca.crt
 venv/
+*.sw*
