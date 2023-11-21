@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import stderr,exit,argv
-import os,ipaddress,random,pynetbox,argparse
+import os,ipaddress,random,pynetbox,argparse,ast,re
 from pprint import pprint
 from uuid import uuid4
 
@@ -35,9 +35,6 @@ def rollback(*messages):
 def assume_ip_gateway(network):
   return str(ipaddress.ip_network(network)[1]).split('/')[0]
 
-# generate uuid
-uuid = lambda: str(uuid4())
-
 def generate_mac():
   prefix = [0x52, 0x54, 0x00]
   suffix = [random.randint(0,0xFF) for _ in range(3)]
@@ -66,12 +63,29 @@ def test_lun_uniqness(nb, cluster, lun, assigned_vm_id):
       return False
   return True
 
+def test_uuid_uniqness(nb, uuid, short=False):
+  # build list of all uuids in short and long form
+  uuids = []
+  short_uuids = []
+  for vm in nb.virtualization.virtual_machines.all():
+    uuids.append(vm.custom_fields['uuid'])
+    short_uuids.append(vm.custom_fields['uuid'].split('-')[0])
+
+  # test uniqeness
+  if uuid in uuids:
+    return False
+  if short:
+    if uuid.split('-')[0] in short_uuids:
+      return False
+  return True
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-T', '--token', help='Netbox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
 parser.add_argument('-A', '--api-url', help='Netbox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
 parser.add_argument('-t', '--tenant', help='Tenant name (defaults to NETBOX_DEFAULT_TENANT env)', default=os.getenv('NETBOX_DEFAULT_TENANT'))
 parser.add_argument('-c', '--cluster', help='Cluster name (defaults to NETBOX_DEFAULT_CLUSTER env)', default=os.getenv('NETBOX_DEFAULT_CLUSTER'))
-parser.add_argument('-s', '--site', help='Site name (defaults to NETBOX_DEFAULT_SITE evn)', default=os.getenv('NETBOX_DEFAULT_SITE'))
+parser.add_argument('-s', '--site', help='Site name (defaults to NETBOX_DEFAULT_SITE env)', default=os.getenv('NETBOX_DEFAULT_SITE'))
+parser.add_argument('--short-uuids', help='Use short UUIDs (defaults to NETBOX_SHORT_UUIDS env or False)', default=ast.literal_eval(os.getenv('NETBOX_SHORT_UUIDS', 'False')), action='store_true')
 parser.add_argument('-n', '--name', help='VM name, eg. "vm-ipam.example.com".', required=True)
 parser.add_argument('-f', '--fqdn', help='FQDN associated with VMs primary IP. Defaults to VM name, if FQDN is used.')
 parser.add_argument('-r', '--ram-size', help='RAM in MBs', required=True, type=int)
@@ -84,6 +98,9 @@ parser.add_argument('-L', '--storage-fixed-lun', help='[cf] Fixed LUN/DRBD Res I
 parser.add_argument('-v', '--vlan-id', help='Vlan for primary IP address (within site)', required=True, type=int)
 parser.add_argument('-p', '--platform', help='Platform slug (defaults to "ubuntu22")', default='ubuntu22')
 parser.add_argument('-B', '--batch', help='Run in batch mode. Don\'t ask for confirmations or rollbacks', default=False, action='store_true')
+parser.add_argument('-m', '--mac-addr', help='Manually select primary interface MAC address. By defaults generates MAC from 52:54:00 OUI')
+parser.add_argument('-i', '--ip-addr', help='Manually select IP address. By default assigns first usable and free IP from block associated with VLAN')
+parser.add_argument('-u', '--uuid', help='Manually select UUID for VM. By default automatically generates one')
 
 args = parser.parse_args()
 
@@ -135,8 +152,20 @@ if args.storage_type == 'drbd':
   if len(storage_devices) != 2:
     fail('invalid amount of storage devices found')
 
-# generate vm uuid
-vm_uuid = uuid()
+if args.uuid:
+  # make sure uuid from user is unique
+  if not test_uuid_uniqness(nb, args.uuid, args.short_uuids):
+    fail("uuid specified is not unique")
+  vm_uuid = args.uuid
+else:
+  # generate vm uuid
+  for _ in range(0, 10):
+    vm_uuid = str(uuid4())
+    if test_uuid_uniqness(nb, vm_uuid, args.short_uuids):
+      break
+  else:
+    fail("faield to generate unique uuid")
+
 debug("- uuid", vm_uuid)
 
 # validate storage pools against each storage/server
@@ -194,25 +223,48 @@ if not net:
   fail("no such vlan")
 debug("- network", net.description)
 
-# generate and verify uniqueness of mac address
-for _ in range(10):
-  mac = generate_mac()
+if args.mac_addr:
+  # test user supplied mac address
+  mac = args.mac_addr
   iface = nb.virtualization.interfaces.get(mac_address=mac)
-  if not iface:
-    break
+  if iface:
+    fail("interface with same mac address already exists")
+  if not re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', mac):
+    fail("invalid mac address specified")
 else:
-  fail("couldnt generate unique mac after 10 tries")
+  # generate and verify uniqueness of mac address
+  for _ in range(10):
+    mac = generate_mac()
+    iface = nb.virtualization.interfaces.get(mac_address=mac)
+    if not iface:
+      break
+  else:
+    fail("couldnt generate unique mac after 10 tries")
 
-# get first usable ip address in the prefix and allocate it
 ip_data = {
   "dns_name": fqdn,
   "tenant": tenant.id,
   "family": 4
 }
-ip = net.available_ips.create(ip_data)
+
+if args.ip_addr:
+  # check if ip address belongs to same network as vlan and if it's free
+  available_ips = net.available_ips.list()
+  if not any(ip.address == args.ip_addr for ip in available_ips):
+    rollback("selected IP address is not valid. valid addresses are ", available_ips)
+  ip_data['address'] = args.ip_addr
+  # create requested ip 
+  ip = nb.ipam.ip_addresses.create(ip_data)
+else: 
+  # get usable ip address in the prefix and allocate it
+  ip = net.available_ips.create(ip_data)
+
 if not ip:
   rollback("failed to allocate address")
-debug("- assigned address", ip)
+if args.ip_addr:
+  debug("- assigned requested address", ip)
+else:
+  debug("- assigned address", ip)
 ROLLBACK_LIST.insert(0, ip)
 
 # make sure allocated address is not gateway address
@@ -223,7 +275,7 @@ if ip.address.split('/')[0] == gateway_ip:
 # allocate unique storage_id, if not fixed lun specified
 lun = None
 if args.storage_fixed_lun:
-  lun = storage_fixed_lun
+  lun = args.storage_fixed_lun
 else:
   lun = assign_lun_for_cluster(nb, args.cluster)
 
@@ -232,7 +284,7 @@ vm_data = {
   "name": args.name,
   "status": 'planned',
   "cluster": cluster.id,
-  "role": 8,
+  "role": {'slug': 'server'},
   "site": site.id,
   "tenant": tenant.id,
   "platform": platform.id,

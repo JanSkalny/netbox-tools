@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import stderr
-import json, os, yaml, pynetbox, re, ipaddress, argparse
+import json, os, yaml, pynetbox, re, ipaddress, argparse, ast
 
 def warn(*msg):
   print(*msg, file=stderr)
@@ -14,6 +14,7 @@ def fail(*msg):
 parser = argparse.ArgumentParser()
 parser.add_argument('-T', '--token', help='Netbox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
 parser.add_argument('-A', '--api-url', help='Netbox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
+parser.add_argument('--short-uuids', help='Use short UUIDs (defaults to NETBOX_SHORT_UUIDS env or False)', default=ast.literal_eval(os.getenv('NETBOX_SHORT_UUIDS', 'False')), action='store_true')
 parser.add_argument('-u', '--uuid', help='Use "vm-UUID" as technical name for VM, instead of name (defaults to false)', action='store_true')
 parser.add_argument('-f', '--fqdn', help='Make extra sure that vm.fqdn is FQDN. (defaults to false)', action='store_true')
 parser.add_argument("-n", '--name', help='VM name', required=True)
@@ -34,7 +35,10 @@ if ip is None:
 
 # decide which tech_name to use
 if args.uuid:
-  tech_name = f'vm-{vm.custom_fields["uuid"]}'
+  if args.short_uuids:
+    tech_name = f'vm-{vm.custom_fields["uuid"].split("-")[0]}'
+  else:
+    tech_name = f'vm-{vm.custom_fields["uuid"]}'
 else:
   tech_name = args.name
   
