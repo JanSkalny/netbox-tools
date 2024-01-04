@@ -14,9 +14,9 @@ pip3 install -r requirements.txt # [2]
 
 ## Description and usage
 ### `netbox_add_if.py`
- - add interface and allocate IP address from VLAN (if specified) 
+ - add interface and allocate IP address from VLAN (if specified)
 
-### `netbox_add_service.py` 
+### `netbox_add_service.py`
  - add service to specified device
  - example: `./netbox_add_service.py vm-example-1 "service-name.example.com" tcp/80`
 
@@ -35,7 +35,7 @@ pip3 install -r requirements.txt # [2]
 
 ### `netbox_generate_networking.py`
  - generate yaml file with networking configuration of specified device or vm
- - for format, see: ansible-roles-common/linux-networking 
+ - for format, see: ansible-roles-common/linux-networking
 
 ### `netbox_generate_virtual.py`
  - generate yaml file with virtual configuration fo specified vm
