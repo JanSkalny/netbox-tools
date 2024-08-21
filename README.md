@@ -2,7 +2,8 @@
 Collection of assorted tools and CLI scripts for NetBox. [1]
 
 ## Installation and requirents
-1.  ```
+1. create and enter python environment for running the scripts
+```
 python3 -m venv venv
 . ./venv/bin/activate
 pip3 install -r requirements.txt # [2]
