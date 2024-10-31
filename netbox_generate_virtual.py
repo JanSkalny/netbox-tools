@@ -103,5 +103,8 @@ res = {
         'host': preseed_host_fqdn,
     }
 
+if 'service_group' in vm.custom_fields:
+  res['service_group'] = vm.custom_fields['service_group']
+
 print("# generated from netbox. do not change manually")
 print(yaml.dump({'virtual':res}))
