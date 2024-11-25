@@ -68,6 +68,9 @@ def test_uuid_uniqness(nb, uuid, short=False):
   uuids = []
   short_uuids = []
   for vm in nb.virtualization.virtual_machines.all():
+    if not vm.custom_fields['uuid']:
+      warn('vm without uuid', vm.name)
+      continue
     uuids.append(vm.custom_fields['uuid'])
     short_uuids.append(vm.custom_fields['uuid'].split('-')[0])
 
