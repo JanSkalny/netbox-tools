@@ -103,7 +103,7 @@ res = {
         'host': preseed_host_fqdn,
     }
 
-if 'service_group' in vm.custom_fields:
+if vm.custom_fields.get('service_group', None):
   res['service_group'] = vm.custom_fields['service_group']
 
 print("# generated from netbox. do not change manually")
