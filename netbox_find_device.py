@@ -33,6 +33,13 @@ def main():
 
   nb = pynetbox.api(args.api_url, args.token)
 
+  # check if we have vm or device with matching name
+  vm = nb.virtualization.virtual_machines.get(name=FQDN)
+  dev = nb.dcim.devices.get(name=FQDN)
+  if vm or dev:
+      print(FQDN)
+      exit(0)
+
   # find matching services
   services = nb.ipam.services.filter(name=FQDN, protocol="tcp", port=22)
   if len(services) > 1:
