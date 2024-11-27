@@ -74,17 +74,21 @@ if config_context and 'networking' in config_context:
 lag_ifaces = defaultdict(list)
 blacklist = [] 
 
-
-# make sure all non-oob mgmt ifaces are in output
 for iface in ifaces:
-  if dev and iface.mgmt_only:
-    continue
-  # ignore all FC interfaces
-  if 'type' in iface and iface.type and re.match(r'.*fc\-.*',iface.type.value):
-    continue
+  # on physical devices, ignore...
+  if dev:
+    # - management interfaces
+    # - all FC interfaces
+    # - virutal interfaces
+    if iface.mgmt_only or re.match(r'.*fc\-.*',iface.type.value) or iface.type.value == 'virtual':
+      blacklist.append(iface.name)
+      continue
+
   # ignore disabled interfaces
   if not iface.enabled:
+    blacklist.append(iface.name)
     continue
+
   if iface.name not in res['networking']:
     res['networking'][iface.name] = {}
 
@@ -102,13 +106,6 @@ if dev:
       res['networking'][lag_child]['bond_master'] = lag_parent
 
 for iface in ifaces: 
-  # ignore management interfaces
-  if dev and iface.mgmt_only:
-    continue
-  # ignore all FC interfaces
-  if 'type' in iface and iface.type and re.match(r'.*fc\-.*',iface.type.value):
-    continue
-
   # mac address of interface
   if iface.mac_address and iface.name in res['networking']:
     res['networking'][iface.name]['ether'] = iface.mac_address.lower()
@@ -150,7 +147,7 @@ for iface in ifaces:
     elif ip.address == primary_addr:
       gateway_addr = assume_ip_gateway(ip.address)
       res['networking'][iface.name]['gateway'] = gateway_addr
-  if iface.custom_fields['routes_list']:
+  if iface.custom_fields.get('routes_list', None):
     if not iface.custom_fields['routes_via']:
         fail("missing next-hop")
     routes = []
