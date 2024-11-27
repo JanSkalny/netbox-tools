@@ -150,6 +150,16 @@ for iface in ifaces:
     elif ip.address == primary_addr:
       gateway_addr = assume_ip_gateway(ip.address)
       res['networking'][iface.name]['gateway'] = gateway_addr
+  if iface.custom_fields['routes_list']:
+    if not iface.custom_fields['routes_via']:
+        fail("missing next-hop")
+    routes = []
+    for route in iface.custom_fields['routes_list']:
+        routes.append({
+            "net": route['prefix'],
+            "via": iface.custom_fields['routes_via']['address'].split('/')[0],
+            })
+    res['networking'][iface.name]['routes'] = routes
 
   # for vm, generate matching 'virtual_host_iface'
   if vm:
