@@ -84,6 +84,13 @@ for iface in ifaces:
       blacklist.append(iface.name)
       continue
 
+  # on virtual machines, ignore...
+  if vm:
+    # - tun and wg interfaces
+    if re.match(r'^(tun|tap|wg)', iface.name):
+      blacklist.append(iface.name)
+      continue
+
   # ignore disabled interfaces
   if not iface.enabled:
     blacklist.append(iface.name)
@@ -160,7 +167,8 @@ for iface in ifaces:
 
   # for vm, generate matching 'virtual_host_iface'
   if vm:
-    res['networking'][iface.name]['virtual_host_iface'] = 'brVlan%d' % iface.untagged_vlan.vid
+    if iface.untagged_vlan:
+      res['networking'][iface.name]['virtual_host_iface'] = 'brVlan%d' % iface.untagged_vlan.vid
 
 # make sure vm is in planned, staging or active phase
 if vm and str(vm.status) not in ['Planned','Staged','Active']:
