@@ -128,7 +128,7 @@ for iface in ifaces:
 
       if 'brVlan%d' % vlan.vid not in res['networking']:
         res['networking']['brVlan%d' % vlan.vid] = {}
-      res['networking']['brVlan%d' % vlan.vid]['bridge_ports'] = 'vlan%d' % vlan.vid
+      res['networking']['brVlan%d' % vlan.vid]['bridge_ports'] = [ 'vlan%d' % vlan.vid ]
  
   # rest is for non-lag interfaces
   if iface.name in blacklist:
