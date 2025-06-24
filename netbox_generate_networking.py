@@ -75,26 +75,22 @@ lag_ifaces = defaultdict(list)
 blacklist = [] 
 
 for iface in ifaces:
+  # ignore interfaces based on device and interface types as well as names
+
+  # ignore...
+  # - tun, tap and wg interfaces 
+  # - disabled interfaces
+  if re.match(r'^(tun|tap|wg)', iface.name) or not iface.enabled:
+    blacklist.append(iface.name)
+    continue
+
   # on physical devices, ignore...
   if dev:
     # - management interfaces
     # - all FC interfaces
-    # - virutal interfaces
-    if iface.mgmt_only or re.match(r'.*fc\-.*',iface.type.value) or iface.type.value == 'virtual':
+    if iface.mgmt_only or re.match(r'.*fc\-.*',iface.type.value):
       blacklist.append(iface.name)
       continue
-
-  # on virtual machines, ignore...
-  if vm:
-    # - tun and wg interfaces
-    if re.match(r'^(tun|tap|wg)', iface.name):
-      blacklist.append(iface.name)
-      continue
-
-  # ignore disabled interfaces
-  if not iface.enabled:
-    blacklist.append(iface.name)
-    continue
 
   if iface.name not in res['networking']:
     res['networking'][iface.name] = {}
