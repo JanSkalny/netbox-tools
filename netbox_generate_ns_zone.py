@@ -27,6 +27,7 @@ Generate NS zone file from netbox IPs, VMs, devices and service names.
 
 def get_forward_records(nb, ZONE):
   records = {}
+  mx_records = []
 
   # find everything related to this DNS zone
   vms = nb.virtualization.virtual_machines.filter("."+ZONE)
@@ -35,51 +36,63 @@ def get_forward_records(nb, ZONE):
   ips = nb.ipam.ip_addresses.filter("."+ZONE)
 
   # vms and devices first
-  for x in chain(vms,devices):
-    name = x.name.replace("."+ZONE,"")
-    if x.primary_ip4 == None:
-      warn("found entry without primary ip address", x.name)
+  for obj in chain(vms,devices):
+    name = obj.name.replace("."+ZONE,"")
+    if obj.primary_ip4 == None:
+      warn("found entry without primary ip address", obj.name)
     else:
-      records[name] = x.primary_ip4.address.split('/')[0]
+      records[name] = obj.primary_ip4.address.split('/')[0]
 
-  for x in services:
-    name = x.name.replace("."+ZONE,"")
+  for service in services:
+    is_mx = False
+    for tag in service.tags:
+      if tag.slug == 'mx':
+        is_mx = True
+    name = service.name.replace("."+ZONE,"")
     ip = None
-    if x.virtual_machine:
-      vm = nb.virtualization.virtual_machines.get(x.virtual_machine.id)
-      if vm.primary_ip4 == None:
-        warn("found service with vm without primary ip address", x.virtual_machine.name)
-      else:
-        ip = vm.primary_ip4.address.split('/')[0]
-    if x.device:
-      dev = nb.dcim.devices.get(x.device.id)
-      if dev.primary_ip4 == None:
-        warn("found service with device without primary ip address", x.device.name)
-      else:
-        ip = dev.primary_ip4.address.split('/')[0]
-    if ip == None:
-      warn("service without ip address!", x.name)
-    if name in records and records[name] != ip:
-      warn("service name conflit with different address", name, records[name], "using service address", ip)
-      # service name has priority
-      records[name] = ip
+    if len(service.ipaddresses) > 0:
+      ip = service.ipaddresses[0].address.split('/')[0]
     else:
-      records[name] = ip
+      if service.virtual_machine:
+        vm = nb.virtualization.virtual_machines.get(service.virtual_machine.id)
+        if vm.primary_ip4 == None:
+          warn("found service with vm without primary ip address", service.virtual_machine.name)
+        else:
+          ip = vm.primary_ip4.address.split('/')[0]
+      if service.device:
+        dev = nb.dcim.devices.get(service.device.id)
+        if dev.primary_ip4 == None:
+          warn("found service with device without primary ip address", service.device.name)
+        else:
+          ip = dev.primary_ip4.address.split('/')[0]
+
+    if ip == None:
+      warn("service without ip address!", service.name)
+
+    if is_mx:
+      mx_records.append(service.description)
+    else:
+      if name in records and records[name] != ip:
+        warn("service name conflit with different address", name, records[name], "using service address", ip)
+        # service name has priority
+        records[name] = ip
+      else:
+        records[name] = ip
 
   # names not used by any services or vms or devices
-  for x in ips:
-    if x.vrf:
+  for ip in ips:
+    if ip.vrf:
       continue
-    name = x.dns_name.replace("."+ZONE,"")
+    name = ip.dns_name.replace("."+ZONE,"")
     if name == '':
-      warn('empty name detected', x)
+      warn('empty name detected', ip)
       continue
     if name not in records:
-      records[name] = x.address.split('/')[0]
+      records[name] = ip.address.split('/')[0]
     #else:
-    #  warn("ignored ipam record", x.dns_name, x.address)
+    #  warn("ignored ipam record", ip.dns_name, ip.address)
 
-  return records
+  return records, mx_records
 
 
 def get_reverse_records(nb, ZONE):
@@ -113,11 +126,11 @@ $ORIGIN {origin}.
 $TTL 86400
 
 @ IN SOA ns.{zone}. admin.{zone}. (
- {serial} ; serial
- 900 ; refresh
- 900 ; retry
- 2419200 ; expire
- 120 ; minimum ttl
+ {serial}   ; Serial
+ 900        ; Refresh
+ 900        ; Retry
+ 2419200    ; Expire
+ 120        ; Minimum TTL
 )
 
 $TTL 120
@@ -133,27 +146,28 @@ $TTL 120
 
     print(res)
   else:
-    records = get_forward_records(nb, ZONE)
+    a_records, mx_records = get_forward_records(nb, ZONE)
     zone_template = """
 $ORIGIN {origin}.
 $TTL 86400
 
 @ IN SOA ns.{origin}. admin.{origin}. (
- {serial} ; serial
- 900 ; refresh (ako casto by sekundar checkoval primar)
- 900 ; retry (ak sa refresh nepodaril, ako casto robit retry)
- 2419200 ; expire (kolko to sekundar podrzi, kym prestane byt autoritativny)
- 120 ; minimum ttl
+ {serial}   ; Serial
+ 900        ; Refresh
+ 900        ; Retry
+ 2419200    ; Expire
+ 120        ; Minimum TTL
  )
 
 $TTL 120
 
 @ IN NS ns.{origin}.
-
 """
 
     res = zone_template.format(origin=ZONE, serial=int(time.time()))
-    for host, ip in sorted(records.items()):
+    for value in sorted(mx_records):
+      res += "@ IN MX %s\n" % (value)
+    for host, ip in sorted(a_records.items()):
       if ip:
         res += "%s IN A %s\n" % (host, ip)
 
