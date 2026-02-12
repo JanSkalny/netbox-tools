@@ -200,12 +200,12 @@ if vm:
   fail("VM with speicified name already exists")
 
 # find the tenant object
-tenant = nb.tenancy.tenants.get(slug=args.tenant)
+tenant = nb.tenancy.tenants.get(slug=args.tenant.lower())
 if not tenant:
   fail("no such tenant")
 
 # fint the site object
-site = nb.dcim.sites.get(slug=args.site)
+site = nb.dcim.sites.get(slug=args.site.lower())
 if not site:
   fail("no such site")
 
