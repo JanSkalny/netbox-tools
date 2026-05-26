@@ -16,11 +16,9 @@ def warn(*messages):
 parser = argparse.ArgumentParser()
 parser.add_argument('-T', '--token', help='Netbox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
 parser.add_argument('-A', '--api-url', help='Netbox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
-parser.add_argument('-t', '--tenant', help='Filter by tenant name')
+parser.add_argument('-t', '--tenant', help='Tenant name (defaults to NETBOX_DEFAULT_TENANT env)', default=os.getenv('NETBOX_DEFAULT_TENANT'))
 parser.add_argument('-c', '--cluster', help='Fitler by cluster name')
 parser.add_argument('-s', '--status', help='Fitler by status (eg. "decommissioning", defaults to "active")', default='active')
-parser.add_argument('-u', '--uuid', help='Display "vm-UUID" instead of name (defaults to false)', action='store_true')
-parser.add_argument('-x', '--silent', help='Don\'t show skip messages (defaults to false)', action='store_true')
 args = parser.parse_args()
 
 nb = pynetbox.api(args.api_url, args.token)
@@ -29,30 +27,10 @@ nb = pynetbox.api(args.api_url, args.token)
 vms = nb.virtualization.virtual_machines.all()
 ids = {}
 for vm in vms:
-  skip = []
-
-  # filtering vms by status
   if vm.status.value != args.status:
-    skip.append(f"status {vm.status}")
-
-  # filter vms by tenant
-  if args.tenant and vm.tenant and vm.tenant.name != args.tenant:
-    skip.append(f"tenant {vm.tenant.name}")
-
+    continue
   # filtering vms by cluster
-  if args.cluster:
-    if not vm.cluster:
-      skip.append("not a cluster vm")
-    elif vm.cluster.name != args.cluster:
-      skip.append(f"cluster {vm.cluster}")
-
-  if len(skip) > 0:
-    if not args.silent:
-      for s in skip:
-        warn("# skip", vm.name, s)
+  if args.cluster and vm.cluster['name'] != args.cluster:
     continue
 
-  if args.uuid:
-    print(f'vm-{vm.custom_fields["uuid"]}')
-  else:
-    print(vm.name)
+  print(vm.custom_fields['fqdn'])

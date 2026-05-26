@@ -99,7 +99,7 @@ parser.add_argument('-D', '--storage-device', help='[cf] Storage device name. Mu
 parser.add_argument('-P', '--storage-pool', help='[cf] Storage pool. Either vg name, or storage class. (eg. "vg0", "mixed", "fast", "slow", ...)', default='mixed')
 parser.add_argument('-L', '--storage-fixed-lun', help='[cf] Fixed LUN/DRBD Res ID assignment. Avoid using this. LUN will be automatically assigned by this script.', type=int)
 parser.add_argument('-v', '--vlan-id', help='Vlan for primary IP address (within site)', required=True, type=int)
-parser.add_argument('-p', '--platform', help='Platform slug (defaults to "ubuntu22")', default='ubuntu22')
+parser.add_argument('-p', '--platform', help='Platform slug (defaults to "ubuntu24")', default='ubuntu24')
 parser.add_argument('-B', '--batch', help='Run in batch mode. Don\'t ask for confirmations or rollbacks', default=False, action='store_true')
 parser.add_argument('-m', '--mac-addr', help='Manually select primary interface MAC address. By defaults generates MAC from 52:54:00 OUI')
 parser.add_argument('-i', '--ip-addr', help='Manually select IP address. By default assigns first usable and free IP from block associated with VLAN')
@@ -143,7 +143,7 @@ for storage_name in args.storage_device:
   storage_dev = nb.dcim.devices.get(name=storage_name)
   if not storage_dev:
     fail("no such storage device", storage_name)
-  if storage_dev.device_role.name not in ['Storage', 'Cluster Node', 'Hypervisor']:
+  if storage_dev.role.name not in ['Storage', 'Cluster Node', 'Hypervisor']:
     fail("non-storage storage device specified", storage_name)
   #TODO: validate site!
   storage_devices.append(storage_dev)

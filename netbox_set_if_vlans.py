@@ -77,14 +77,16 @@ def main():
   if dev != None:
     ifaces = nb.dcim.interfaces.filter(device=args.host, name=args.iface)
   if len(ifaces) == 0:
-    fail("interface does not exist")
+    fail(args.host, args.iface, "interface does not exist")
 
   requested_vids = set()
 
   # parse trunk vlans
-  if args.vlans:
+  if args.vlans and args.vlans.lower() != 'none':
     vlan_ranges = args.vlans.split(',')
     for vlan_range in vlan_ranges:
+      if len(vlan_range) == 0:
+          continue
       lo_hi = vlan_range.split('-')
       if len(lo_hi) > 1:
         requested_vids.update(range(int(lo_hi[0]), int(lo_hi[1])+1))

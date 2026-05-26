@@ -17,7 +17,7 @@ parser.add_argument('-A', '--api-url', help='Netbox API URL (defaults to NETBOX_
 parser.add_argument('-f', '--upgrade-fw', help='Update last_upgrade_fw field', default=False, action='store_true')
 parser.add_argument('-F', '--firmware', help='Set firmware version to specified value', default=False)
 parser.add_argument('-a', '--upgrade-app', help='Update last_upgrade_app field', default=False, action='store_true')
-parser.add_argument('-o', '--upgrade-os', help='Update last_upgrade field', default=False, action='store_true')
+parser.add_argument('-o', '--upgrade-os', help='Update last_upgrade_os field', default=False, action='store_true')
 parser.add_argument('-n', '--no-change', help='Show preview and don\'t modify anything', default=False, action='store_true')
 parser.add_argument('fqdn', help='FQDN associated with VM or Device')
 
@@ -55,7 +55,7 @@ if args.upgrade_app:
 if args.upgrade_fw:
     change_fields.append('last_upgrade_fw')
 if args.upgrade_os or not (args.upgrade_app or args.upgrade_fw):
-    change_fields.append('last_upgrade')
+    change_fields.append('last_upgrade_os')
 
 # date fields
 for change_field in change_fields:
