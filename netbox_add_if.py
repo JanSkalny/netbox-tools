@@ -155,8 +155,6 @@ def main():
   }
 
   # optional arguments
-  if args.mac != None:
-    iface_data['mac_address'] = args.mac
   if args.mtu != None:
     iface_data['mtu'] = args.mtu
   if args.management_only != None:
@@ -198,7 +196,20 @@ def main():
   if dev != None:
     iface_data['device'] = dev.id
     iface_type = 'dcim.interface'
+
     iface = nb.dcim.interfaces.create(iface_data)
+
+  # Since NetBox 4.2, MAC addresses are separate objects. Assign the MAC
+  # object to the interface and designate it as the interface's primary MAC.
+  if args.mac != None:
+    mac = nb.dcim.mac_addresses.create({
+            'mac_address': args.mac,
+            'assigned_object_type': iface_type,
+            'assigned_object_id': iface.id,
+            })
+    iface.primary_mac_address = mac.id
+    if iface.save() == False:
+      fail("failed to declare MAC address as primary")
 
   # create ip address and assign to interface
   if iface_addr_masked != None:
