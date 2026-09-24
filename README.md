@@ -31,6 +31,22 @@ pip3 install -r requirements.txt # [2]
  - create new VM with "eth0" interface, allocate ip address and create tcp/22 service
  - for usage, see `./netbox_create_vm.py -h`
 
+### `netbox_create_tenant_group.py`
+ - create a tenant group; its slug defaults to the lowercase name with spaces replaced by dashes
+ - example: `./netbox_create_tenant_group.py "Example Group"`
+
+### `netbox_create_tenant.py`
+ - create a tenant, optionally assigning it to a tenant group by slug
+ - example: `./netbox_create_tenant.py "Example Tenant" --tenant-group example-group`
+
+### `netbox_update_tenant_group.py`
+ - update the name or slug of a tenant group selected by its current slug
+ - example: `./netbox_update_tenant_group.py example-group --new-name "Renamed Group"`
+
+### `netbox_update_tenant.py`
+ - update the name, slug, or tenant group of a tenant selected by its current slug
+ - example: `./netbox_update_tenant.py example-tenant --new-tenant-group another-group`
+
 ### `netbox_generate_config.py`
  - generate yaml file with config context of specified device or vm
 
