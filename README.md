@@ -49,8 +49,9 @@ pip3 install -r requirements.txt # [2]
 
 ### `netbox_list_contacts.py`
  - list contacts, displaying their names by default
+ - optionally filter contacts by tenant slug with `--tenant`
  - use `--output name|phone|email|id|json` to select the output
- - example: `./netbox_list_contacts.py --output email`
+ - example: `./netbox_list_contacts.py --tenant example-tenant --output email`
 
 ### `netbox_find_contact.py`
  - find a contact by exact name, phone, or email, displaying its ID by default
