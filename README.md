@@ -47,6 +47,22 @@ pip3 install -r requirements.txt # [2]
  - update the name, slug, or tenant group of a tenant selected by its current slug
  - example: `./netbox_update_tenant.py example-tenant --new-tenant-group another-group`
 
+### `netbox_list_contacts.py`
+ - list contacts, displaying their names by default
+ - use `--output name|phone|email|id|json` to select the output
+ - example: `./netbox_list_contacts.py --output email`
+
+### `netbox_find_contact.py`
+ - find a contact by exact name, phone, or email, displaying its ID by default
+ - use `--output name|phone|email|id|json` to select the output
+ - example: `./netbox_find_contact.py "Jane Example" --output json`
+
+### `netbox_create_contact.py`
+ - create a contact; only `--name` is required
+ - optionally accepts `--phone`, `--email`, and `--description`
+ - prints the new contact's ID
+ - example: `./netbox_create_contact.py --name "Jane Example" --phone "+421900123456" --email "jane@example.com" --description "Primary contact"`
+
 ### `netbox_generate_config.py`
  - generate yaml file with config context of specified device or vm
 
