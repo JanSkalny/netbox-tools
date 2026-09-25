@@ -13,6 +13,26 @@ pip3 install -r requirements.txt # [2]
 4. ...
 5. Profit!
 
+### Docker
+
+Build the image and load the helper function:
+
+```bash
+./build.sh
+source ./activate.example
+```
+
+The helper forwards the NetBox environment variables from your current shell.
+Run any tool by passing its script name and arguments:
+
+```bash
+netbox-tools netbox_find_device.py --help
+netbox-tools netbox_add_service.py vm-example-1 service.example.com tcp/80
+```
+
+By default the helper uses `netbox-tools:latest`. Set `NETBOX_TOOLS_TAG` to run a
+branch-tagged image produced by `build.sh`.
+
 ## Description and usage
 ### `netbox_add_if.py`
  - add interface and allocate IP address from VLAN (if specified)

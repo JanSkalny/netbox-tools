@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -a
+. .env
+set +a
+
+netbox-tools() {
+    local tty=()
+
+    [[ -t 0 && -t 1 ]] && tty=(-t)
+
+    #XXX: remove irrelevant
+    docker run --rm -i \
+        "${tty[@]}" \
+        -e NETBOX_TOKEN \
+        -e NETBOX_API_URL \
+        -e NETBOX_DEFAULT_TENANT \
+        -e NETBOX_DEFAULT_SITE \
+        -e NETBOX_DEFAULT_CLUSTER \
+        -e NETBOX_SHORT_UUIDS \
+        -v "./root-ca.crt:/root-ca.crt:ro" \
+        -e REQUESTS_CA_BUNDLE="/root-ca.crt" \
+        "netbox-tools:${NETBOX_TOOLS_TAG:-latest}" \
+        "$@"
+}
+
+export -f netbox-tools

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.DS_Store
+*.swp
+*.swo
+activate
+env
+venv/
+__pycache__/
+*.py[cod]
+.ssh/
+ca.crt
