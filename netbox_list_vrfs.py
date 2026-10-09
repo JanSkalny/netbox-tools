@@ -6,6 +6,8 @@ from sys import exit, stderr
 
 import pynetbox
 
+from netbox_filter_common import add_filter_argument, filter_endpoint
+
 
 def fail(*messages):
   print(*messages, file=stderr)
@@ -17,16 +19,24 @@ def main():
   parser.add_argument('-t', '--tenant', help='Filter by tenant slug')
   parser.add_argument('-T', '--token', help='NetBox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
   parser.add_argument('-A', '--api-url', help='NetBox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
+  add_filter_argument(parser)
   args = parser.parse_args()
 
   nb = pynetbox.api(args.api_url, token=args.token)
+  filters = {}
   if args.tenant:
     tenant = nb.tenancy.tenants.get(slug=args.tenant)
     if not tenant:
       fail('no such tenant:', args.tenant)
-    vrfs = nb.ipam.vrfs.filter(tenant_id=tenant.id)
-  else:
-    vrfs = nb.ipam.vrfs.all()
+    filters['tenant_id'] = tenant.id
+
+  vrfs = filter_endpoint(
+    nb,
+    parser,
+    nb.ipam.vrfs,
+    args.filter,
+    base_filters=filters,
+  )
 
   for vrf in vrfs:
     print(vrf.name)

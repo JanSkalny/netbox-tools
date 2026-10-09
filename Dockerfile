@@ -14,6 +14,4 @@ COPY --chmod=755 netbox_*.py /usr/local/bin/
 
 USER netbox-tools
 
-# Supply a tool name when starting the container, for example:
-# docker run --rm netbox-tools netbox_find_device.py --help
 CMD ["netbox_list_tenants.py"]

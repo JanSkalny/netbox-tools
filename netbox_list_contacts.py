@@ -7,6 +7,8 @@ from sys import exit, stderr
 
 import pynetbox
 
+from netbox_filter_common import add_filter_argument, filter_endpoint
+
 
 OUTPUT_FIELDS = ('name', 'phone', 'email', 'id', 'json')
 TENANT_OBJECT_TYPE = 'tenancy.tenant'
@@ -32,9 +34,11 @@ def main():
   parser.add_argument('-t', '--tenant', help='Filter by tenant slug')
   parser.add_argument('-T', '--token', help='NetBox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
   parser.add_argument('-A', '--api-url', help='NetBox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
+  add_filter_argument(parser)
   args = parser.parse_args()
 
   nb = pynetbox.api(args.api_url, token=args.token)
+  filters = {}
   if args.tenant:
     tenant = nb.tenancy.tenants.get(slug=args.tenant)
     if not tenant:
@@ -45,9 +49,19 @@ def main():
       object_id=tenant.id,
     )
     contact_ids = {assignment.contact.id for assignment in assignments}
-    contacts = nb.tenancy.contacts.filter(id=list(contact_ids)) if contact_ids else []
-  else:
-    contacts = nb.tenancy.contacts.all()
+    if not contact_ids:
+      contacts = []
+    else:
+      filters['id'] = list(contact_ids)
+
+  if not args.tenant or contact_ids:
+    contacts = filter_endpoint(
+      nb,
+      parser,
+      nb.tenancy.contacts,
+      args.filter,
+      base_filters=filters,
+    )
 
   for contact in contacts:
     output_contact(contact, args.output)
