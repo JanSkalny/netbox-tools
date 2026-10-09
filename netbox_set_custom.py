@@ -7,11 +7,23 @@ import pynetbox
 
 from netbox_custom_common import (
   OBJECT_ENDPOINTS,
+  choice_value,
   custom_field_definition,
   get_custom_value,
   get_object,
   parse_value,
 )
+
+
+def current_choice_values(field, value):
+  field_type = str(choice_value(getattr(field, 'type', 'text'))).lower()
+  if field_type not in ('choice', 'select', 'selection'):
+    return value, None
+  if isinstance(value, dict) and 'value' in value:
+    return value.get('value'), value.get('label')
+  if getattr(value, 'value', None) is not None:
+    return value.value, getattr(value, 'label', None)
+  return value, None
 
 
 def main():
@@ -21,6 +33,8 @@ def main():
   parser.add_argument('field', help='Custom field slug')
   parser.add_argument('value', nargs='?', help='New value; quote values containing spaces')
   parser.add_argument('--clear', action='store_true', help='Clear the custom field')
+  parser.add_argument('-n', '--dry-run', action='store_true',
+                      help='Do not change anything in NetBox; only show the requested change')
   parser.add_argument('-T', '--token', help='Netbox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
   parser.add_argument('-A', '--api-url', help='Netbox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
   args = parser.parse_args()
@@ -30,14 +44,23 @@ def main():
 
   nb = pynetbox.api(args.api_url, token=args.token)
   obj = get_object(nb, args.object_type, args.identifier)
-  get_custom_value(obj, args.field)
+  current_value = get_custom_value(obj, args.field)
   field = custom_field_definition(nb, args.field)
   value = None if args.clear else parse_value(nb, field, args.value)
+  current_value, current_label = current_choice_values(field, current_value)
 
-  obj.custom_fields[args.field] = value
-  obj.save()
-  # Echo the CLI representation so related objects remain names/slugs, not IDs.
-  print('%s=%s' % (args.field, 'null' if args.clear else args.value))
+  if value == current_value or (current_label is not None and value == current_label):
+    print(f"{args.field}: no change")
+  else:
+    if not args.dry_run:
+      print(f"{args.field}: {current_value} -> {value}")
+      # PATCH only the requested custom field. Calling save() after mutating
+      # custom_fields can resend expanded values for unrelated choice fields
+      # (for example, {"value": "24", "label": "24/7"}), which NetBox
+      # rejects because it expects the raw choice value.
+      obj.update({'custom_fields': {args.field: value}})
+    else:
+      print(f"{args.field}: {current_value} -> {value} (not saving during dry run)")
 
 
 if __name__ == '__main__':
