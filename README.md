@@ -59,6 +59,56 @@ branch-tagged image produced by `build.sh`.
  - create a tenant, optionally assigning it to a tenant group by slug
  - example: `./netbox_create_tenant.py "Example Tenant" --tenant-group example-group`
 
+### Filtering list commands
+ - `netbox_list_tenants.py`, `netbox_list_tenant_groups.py`, `netbox_list_ips.py`, `netbox_list_prefixes.py`, `netbox_list_vrfs.py`, `netbox_list_contacts.py`, `netbox_list_vms.py`, and `netbox_list_vms_fqdns.py` accept repeatable `--filter KEY=VALUE` options
+ - filters use NetBox REST API names; custom fields use the `cf_` prefix
+ - boolean custom-field filters accept `1`/`0`, `true`/`false`, `yes`/`no`, or `on`/`off`
+ - custom-field negation uses the `__n` suffix and includes objects where the field is unset
+ - `netbox_list_custom.py` is not a collection query: it lists fields on one identified object, so API filters do not apply
+
+### `netbox_list_tenants.py`
+ - list tenant slugs (or names with `--names`), optionally including their group slugs with `--with-groups`
+ - example: `./netbox_list_tenants.py --filter cf_void_wazuh=1`
+
+### `netbox_create_ip.py`
+ - create an IPv4 or IPv6 address and print the new object's ID
+ - optionally assign a DNS name, description, tenant slug, VRF name, and existing tags
+ - repeat `--tag` to assign multiple tags; tags are selected by slug and must already exist
+ - use `-v` to trace each NetBox API request with its status code and duration
+ - example: `./netbox_create_ip.py 192.0.2.10/24 --name host.example.com --tenant example-tenant --vrf example-vrf --tag production`
+
+### `netbox_list_ips.py`
+ - list IP addresses, optionally filtered by tenant slug or repeatable NetBox API filters
+ - use `--output address|id|json` to select the output; the default is `address`
+ - example: `./netbox_list_ips.py --tenant example-tenant --filter status=active --output json`
+
+### `netbox_create_prefix.py`
+ - create an IPv4 or IPv6 prefix for a tenant and print the new object's ID
+ - optionally assign a description, VLAN number, VRF name, and existing tags
+ - repeat `--tag` to assign multiple tags; tags are selected by slug and must already exist
+ - example: `./netbox_create_prefix.py 192.0.2.0/24 example-tenant --description "Example network" --vlan 100 --vrf example-vrf --tag production --tag customer-facing`
+
+### `netbox_list_prefixes.py`
+ - list prefix CIDRs, optionally filtered by tenant slug and one existing tag slug
+ - example: `./netbox_list_prefixes.py --tenant example-tenant --tag production`
+
+### `netbox_list_vrfs.py`
+ - list VRF names, optionally filtered by tenant slug
+ - example: `./netbox_list_vrfs.py --tenant example-tenant`
+
+### `netbox_create_vrf.py`
+ - create a VRF, optionally assigning it to a tenant by slug, and print the new object's ID
+ - example: `./netbox_create_vrf.py production --tenant example-tenant`
+
+### Custom fields
+ - `netbox_get_custom.py TYPE IDENTIFIER FIELD` prints one custom-field value
+ - `netbox_list_custom.py TYPE IDENTIFIER [FIELD]` lists field slugs and values, sorted by slug
+ - `netbox_set_custom.py TYPE IDENTIFIER FIELD VALUE` sets a field; use `--clear` instead of `VALUE` to clear it, or `-n` to only show the requested change
+ - supported types are `ip`, `prefix`, `tenant`, `vm`, `device`, and `vlan`
+ - identifiers may be numeric object IDs; natural identifiers are also accepted (address/CIDR, tenant slug/name, or VM/device/VLAN name)
+ - object and multi-object custom-field values are supplied and displayed as names/slugs rather than descriptions; comma-separated and JSON-array values are accepted for multi-value fields
+ - examples: `./netbox_get_custom.py vm vm-example-1 storage_type`, `./netbox_set_custom.py vm vm-example-1 storage_device storage-1`, `./netbox_list_custom.py tenant example-tenant`
+
 ### `netbox_update_tenant_group.py`
  - update the name or slug of a tenant group selected by its current slug
  - example: `./netbox_update_tenant_group.py example-group --new-name "Renamed Group"`

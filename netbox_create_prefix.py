@@ -29,8 +29,8 @@ def cidr(value):
 
 def find_vrf(nb, identifier):
   matches = [
-    vrf for vrf in nb.ipam.vrfs.all()
-    if vrf.name == identifier or getattr(vrf, 'slug', None) == identifier
+    vrf for vrf in nb.ipam.vrfs.filter(name=identifier)
+    if vrf.name == identifier
   ]
   if not matches:
     fail('no such VRF:', identifier)
@@ -45,7 +45,7 @@ def main():
   parser.add_argument('tenant', help='Tenant slug')
   parser.add_argument('-d', '--description', help='Prefix description')
   parser.add_argument('-v', '--vlan', type=vlan_number, help='VLAN number')
-  parser.add_argument('-r', '--vrf', help='VRF name (or slug when available)')
+  parser.add_argument('-r', '--vrf', help='VRF name')
   parser.add_argument('-g', '--tag', action='append', default=[], help='Existing tag slug (may be repeated)')
   parser.add_argument('-T', '--token', help='NetBox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
   parser.add_argument('-A', '--api-url', help='NetBox API URL (defaults to NETBOX_API_URL env)', default=os.getenv('NETBOX_API_URL'))
