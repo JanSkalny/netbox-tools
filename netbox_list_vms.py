@@ -2,12 +2,11 @@
 
 import argparse
 import os
-from netbox_custom_common import custom_field_value
-
 from sys import exit, stderr
 
 import pynetbox
 
+from netbox_custom_common import custom_field_value
 from netbox_filter_common import add_filter_argument, filter_endpoint, has_exact_filter
 
 

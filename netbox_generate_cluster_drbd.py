@@ -93,7 +93,7 @@ res = {
         'uuid': custom_field_value(vm.custom_fields['uuid']),
         'cpus': int(vm['vcpus']),
         'ram': int(vm['memory']),
-        'disk_size': int(vm['disk']),
+        'disk_size': int(vm['disk']/1024),
         'disk_blk': disk_blk,
         'cluster': vm['cluster']['name'].replace('-','_'),
         'host': preseed_host_fqdn,

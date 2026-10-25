@@ -51,7 +51,7 @@ def main():
     if service['virtual_machine']:
       if args.uuid:
         service.virtual_machine.full_details()
-        print(f'{custom_field_value(service["virtual_machine"]["custom_fields"]["uuid"])}')
+        print(custom_field_value(service['virtual_machine']['custom_fields']['uuid']))
       else:
         print(service['virtual_machine']['name'])
     elif service['device']:
@@ -73,7 +73,7 @@ def main():
     if 'virtual_machine' in ip['assigned_object']:
       if args.uuid:
         ip.assigned_object.virtual_machine.full_details()
-        print(f'{custom_field_value(ip["assigned_object"]["virtual_machine"]["custom_fields"]["uuid"])}')
+        print(custom_field_value(ip['assigned_object']['virtual_machine']['custom_fields']['uuid']))
       else:
         print(ip['assigned_object']['virtual_machine']['name'])
     elif 'device' in ip['assigned_object']:
