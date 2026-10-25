@@ -70,7 +70,21 @@ def get_custom_value(obj, field_slug):
   return custom_fields[field_slug]
 
 
+def custom_field_value(value):
+  """Return raw choices from both legacy and NetBox 4.7 custom fields.
+
+  Only unwrap the choice envelope; related objects and JSON dictionaries
+  must retain their contents. Do not mutate the API response.
+  """
+  if isinstance(value, dict) and value.keys() == {'value', 'label'}:
+    return value['value']
+  if isinstance(value, list):
+    return [custom_field_value(item) for item in value]
+  return value
+
+
 def display_value(value):
+  value = custom_field_value(value)
   if value is None:
     return 'null'
   if isinstance(value, bool):

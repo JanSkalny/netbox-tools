@@ -2,6 +2,8 @@
 
 import argparse
 import os
+from netbox_custom_common import custom_field_value
+
 from sys import exit, stderr
 
 import pynetbox
@@ -42,7 +44,7 @@ def main():
     if args.cluster and vm.cluster['name'] != args.cluster:
       continue
 
-    print(vm.custom_fields['fqdn'])
+    print(custom_field_value(vm.custom_fields['fqdn']))
 
 
 if __name__ == '__main__':

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from netbox_custom_common import custom_field_value
+
 from sys import stderr,exit
 import json, os, pynetbox, re, datetime, argparse
 
@@ -59,15 +61,15 @@ if args.upgrade_os or not (args.upgrade_app or args.upgrade_fw):
 
 # date fields
 for change_field in change_fields:
-    if x.custom_fields[change_field] != d:
-        print(f"{change_field}: {x.custom_fields[change_field]} -> {d}")
+    if custom_field_value(x.custom_fields[change_field]) != d:
+        print(f"{change_field}: {custom_field_value(x.custom_fields[change_field])} -> {d}")
         x.custom_fields[change_field] = d
         changed_fields.append(change_field)
 
 # firmware version
 if args.upgrade_fw and args.firmware:
-    if x.custom_fields['firmware'] != args.firmware:
-        print(f"firmware: {x.custom_fields['firmware']} -> {args.firmware}")
+    if custom_field_value(x.custom_fields['firmware']) != args.firmware:
+        print(f"firmware: {custom_field_value(x.custom_fields['firmware'])} -> {args.firmware}")
         x.custom_fields['firmware'] = args.firmware
         changed_fields.append('firmware')
 

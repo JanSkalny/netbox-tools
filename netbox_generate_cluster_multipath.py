@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from netbox_custom_common import custom_field_value
+
 from sys import stderr,exit,argv
 import json,yaml,os,ipaddress,random,pynetbox,argparse,ast
 import requests as req
@@ -31,19 +33,19 @@ for vm in vms:
     #    warn
     wwid = None
     if 'storage_wwn' in vm.custom_fields:
-        wwid = vm.custom_fields['storage_wwn']
+        wwid = custom_field_value(vm.custom_fields['storage_wwn'])
         if not wwid or len(wwid) == 0:
             fail(vm, "empty storage_wwn")
         wwid = "3" + wwid.replace(':','').lower()
     if 'storage_wwid' in vm.custom_fields:
-        wwid = vm.custom_fields['storage_wwid']
+        wwid = custom_field_value(vm.custom_fields['storage_wwid'])
         if not wwid or len(wwid) == 0:
             fail(vm, "empty storage_wwid")
 
     if not wwid:
         fail(vm, "missing wwid")
 
-    uuid = vm.custom_fields['uuid']
+    uuid = custom_field_value(vm.custom_fields['uuid'])
     if args.short_uuids:
       uuid = uuid.split('-')[0]
 

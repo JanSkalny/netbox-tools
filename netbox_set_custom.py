@@ -8,6 +8,7 @@ import pynetbox
 from netbox_custom_common import (
   OBJECT_ENDPOINTS,
   choice_value,
+  custom_field_value,
   custom_field_definition,
   get_custom_value,
   get_object,
@@ -17,6 +18,8 @@ from netbox_custom_common import (
 
 def current_choice_values(field, value):
   field_type = str(choice_value(getattr(field, 'type', 'text'))).lower()
+  if field_type in ('multiselect', 'multi-select'):
+    return custom_field_value(value), None
   if field_type not in ('choice', 'select', 'selection'):
     return value, None
   if isinstance(value, dict) and 'value' in value:

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from netbox_custom_common import custom_field_value
+
 from sys import stderr
 import json, os, yaml, pynetbox, re, ipaddress, argparse, ast
 
@@ -36,17 +38,17 @@ if ip is None:
 # decide which tech_name to use
 if args.uuid:
   if args.short_uuids:
-    tech_name = f'vm-{vm.custom_fields["uuid"].split("-")[0]}'
+    tech_name = f'vm-{custom_field_value(vm.custom_fields["uuid"]).split("-")[0]}'
   else:
-    tech_name = f'vm-{vm.custom_fields["uuid"]}'
+    tech_name = f'vm-{custom_field_value(vm.custom_fields["uuid"])}'
 else:
   tech_name = args.name
   
 # decide storage device based on storage_type, pool and tech_name
 disk_blk = None
-st = vm.custom_fields['storage_type']
+st = custom_field_value(vm.custom_fields['storage_type'])
 if st == 'lvm':
-  disk_blk = f'/dev/{vm.custom_fields["storage_pool"]}/{tech_name}'
+  disk_blk = f'/dev/{custom_field_value(vm.custom_fields["storage_pool"])}/{tech_name}'
 elif st == 'drbd':
   disk_blk = f'/dev/drbd/by-res/{tech_name}/0'
 elif st == 'multipath':
@@ -59,11 +61,12 @@ if len(cluster_nodes) == 0:
 chosen_node = list(cluster_nodes)[0]
 
 # make sure to use fqdn of choosen node
+node_fqdn = custom_field_value(chosen_node.custom_fields.get('fqdn'))
 preseed_host_fqdn = None
 if '.' in chosen_node.name:
   preseed_host_fqdn = chosen_node.name
-elif 'fqdn' in chosen_node.custom_fields and chosen_node.custom_fields['fqdn'] and '.' in chosen_node.custom_fields['fqdn']:
-  preseed_host_fqdn = chosen_node.custom_fields['fqdn']
+elif node_fqdn and '.' in node_fqdn:
+  preseed_host_fqdn = node_fqdn
 else:
   chosen_node.primary_ip.full_details()
   if '.' in chosen_node.primary_ip4.dns_name:
@@ -73,11 +76,12 @@ if not preseed_host_fqdn:
 
 # make sure fqdn is fqdn, if requested.. otherwise just use vm.name
 if args.fqdn:
+  vm_fqdn = custom_field_value(vm.custom_fields.get('fqdn'))
   fqdn = None
   if '.' in vm.name:
     fqdn = vm.name
-  elif 'fqdn' in vm.custom_fields and '.' in vm.custom_fields['fqdn']:
-    fqdn = vm.custom_fields['fqdn']
+  elif vm_fqdn and '.' in vm_fqdn:
+    fqdn = vm_fqdn
   else:
     if '.' in ip.dns_name:
       fqdn = ip.dns_name
@@ -94,7 +98,7 @@ if str(vm.status) not in ['Planned','Staged','Active']:
 res = {
         'name': tech_name,
         'fqdn': fqdn,
-        'uuid': vm.custom_fields['uuid'],
+        'uuid': custom_field_value(vm.custom_fields['uuid']),
         'cpus': int(vm['vcpus']),
         'ram': int(vm['memory']),
         'disk_size': int(vm['disk']),
@@ -103,8 +107,9 @@ res = {
         'host': preseed_host_fqdn,
     }
 
-if vm.custom_fields.get('service_group', None):
-  res['service_group'] = vm.custom_fields['service_group']
+service_group = custom_field_value(vm.custom_fields.get('service_group'))
+if service_group:
+  res['service_group'] = service_group
 
 print("# generated from netbox. do not change manually")
 print(yaml.dump({'virtual':res}))

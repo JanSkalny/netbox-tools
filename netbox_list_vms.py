@@ -2,6 +2,8 @@
 
 import argparse
 import os
+from netbox_custom_common import custom_field_value
+
 from sys import exit, stderr
 
 import pynetbox
@@ -62,7 +64,7 @@ def main():
       continue
 
     if args.uuid:
-      print(f'vm-{vm.custom_fields["uuid"]}')
+      print(f'vm-{custom_field_value(vm.custom_fields["uuid"])}')
     else:
       print(vm.name)
 
