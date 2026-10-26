@@ -161,10 +161,13 @@ for iface in ifaces:
             })
     res['networking'][iface.name]['routes'] = routes
 
-  # for vm, generate matching 'virtual_host_iface'
+  # for vm, generate matching 'virtual_host_iface' using either custom field or access vlan
   if vm:
-    if iface.untagged_vlan:
-      res['networking'][iface.name]['virtual_host_iface'] = 'brVlan%d' % iface.untagged_vlan.vid
+    host_iface = iface.custom_fields.get('virtual_host_iface', None)
+    if not host_iface and iface.untagged_vlan:
+      host_iface = 'brVlan%d' % iface.untagged_vlan.vid
+    if host_iface:
+      res['networking'][iface.name]['virtual_host_iface'] = host_iface
 
 # make sure vm is in planned, staging or active phase
 if vm and str(vm.status) not in ['Planned','Staged','Active']:
