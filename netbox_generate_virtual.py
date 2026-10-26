@@ -95,7 +95,8 @@ if str(vm.status) not in ['Planned','Staged','Active']:
   fail(vm.name, 'is in invalid state', vm.status)
 
 # construct "virtual" configuration
-res = {
+res = dict((vm['config_context'] or {}).get('virtual') or {})
+res.update({
         'name': tech_name,
         'fqdn': fqdn,
         'uuid': custom_field_value(vm.custom_fields['uuid']),
@@ -105,7 +106,7 @@ res = {
         'disk_blk': disk_blk,
         'cluster': vm['cluster']['name'].replace('-','_'),
         'host': preseed_host_fqdn,
-    }
+    })
 
 service_group = custom_field_value(vm.custom_fields.get('service_group'))
 if service_group:

@@ -139,10 +139,12 @@ branch-tagged image produced by `build.sh`.
 
 ### `netbox_generate_networking.py`
  - generate yaml file with networking configuration of specified device or vm
+ - optionally pass `--auto-vlan-bridge` to generate VLAN bridges and infer VM host bridges (defaults to false)
  - for format, see: ansible-roles-common/linux-networking
 
 ### `netbox_generate_virtual.py`
  - generate yaml file with virtual configuration fo specified vm
+ - use `config_context.virtual` as a base, with generated VM values taking precedence
  - for format, see: ansible-roles/common/virtual/preseed-ng
 
 ### `netbox_generate_ns_zone.py`
