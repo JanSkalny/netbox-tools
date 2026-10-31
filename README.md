@@ -36,6 +36,13 @@ branch-tagged image produced by `build.sh`.
 ## Description and usage
 ### `netbox_add_if.py`
  - add interface and allocate IP address from VLAN (if specified)
+ - use `-B BRIDGE` or `--bridge BRIDGE` to assign an existing parent bridge interface on the same device or VM; `-P/--parent` sets the separate parent interface relationship
+ - example: `./netbox_add_if.py -H srv-example-1 -i eth0 -B br0`
+
+### `netbox_set_if_bridge.py`
+ - assign an existing device or VM interface to a bridge interface on the same host
+ - use `-B/--bridge-iface` (or `--bridge`) to select the bridge; interfaces already assigned to it are left unchanged
+ - example: `./netbox_set_if_bridge.py -H srv-example-1 -i eth0 -B br0`
 
 ### `netbox_add_service.py`
  - add service to specified device
