@@ -20,6 +20,7 @@ parser.add_argument('--short-uuids', help='Use short UUIDs (defaults to NETBOX_S
 parser.add_argument('-u', '--uuid', help='Use "vm-UUID" as technical name for VM, instead of name (defaults to false)', action='store_true')
 parser.add_argument('-f', '--fqdn', help='Make extra sure that vm.fqdn is FQDN. (defaults to false)', action='store_true')
 parser.add_argument("-n", '--name', help='VM name', required=True)
+parser.add_argument('--disk-base-unit', help='Base unit for disk size conversion (default: 1024)', type=int, choices=(1, 1000, 1024), default=1024)
 args = parser.parse_args()
 
 # connect to netbox
@@ -102,7 +103,7 @@ res.update({
         'uuid': custom_field_value(vm.custom_fields['uuid']),
         'cpus': int(vm['vcpus']),
         'ram': int(vm['memory']),
-        'disk_size': int(vm['disk']/1024),
+        'disk_size': int(vm['disk']/args.disk_base_unit),
         'disk_blk': disk_blk,
         'cluster': vm['cluster']['name'].replace('-','_'),
         'host': preseed_host_fqdn,
