@@ -171,8 +171,13 @@ for iface in ifaces:
     if host_iface:
       res['networking'][iface.name]['virtual_host_iface'] = host_iface
 
-  # vlan interfaces
-  if iface.parent and iface.mode and iface.mode.value == 'access' and iface.untagged_vlan:
+  # Bridges carry VLAN traffic but are not VLAN subinterfaces themselves.
+  is_bridge = (
+    getattr(getattr(iface, 'type', None), 'value', None) == 'bridge'
+    or iface.name.startswith('brVlan')
+    or 'bridge_ports' in res['networking'][iface.name]
+  )
+  if not is_bridge and iface.parent and iface.mode and iface.mode.value == 'access' and iface.untagged_vlan:
     res['networking'][iface.name]['vlan-iface'] = str(iface.parent)
     res['networking'][iface.name]['vlan-id'] = iface.untagged_vlan.vid
 

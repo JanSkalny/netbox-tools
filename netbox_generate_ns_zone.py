@@ -53,16 +53,24 @@ def get_forward_records(nb, ZONE):
     if len(service.ipaddresses) > 0:
       ip = service.ipaddresses[0].address.split('/')[0]
     else:
-      if service.virtual_machine:
-        vm = nb.virtualization.virtual_machines.get(service.virtual_machine.id)
+      # NetBox 4.3+ represents the host as a generic parent relationship.
+      parent_type = getattr(service, 'parent_object_type', None)
+      if parent_type is not None:
+        vm_ref = service.parent if parent_type == 'virtualization.virtualmachine' else None
+        dev_ref = service.parent if parent_type == 'dcim.device' else None
+      else:
+        vm_ref = getattr(service, 'virtual_machine', None)
+        dev_ref = getattr(service, 'device', None)
+      if vm_ref:
+        vm = nb.virtualization.virtual_machines.get(vm_ref.id)
         if vm.primary_ip4 == None:
-          warn("found service with vm without primary ip address", service.virtual_machine.name)
+          warn("found service with vm without primary ip address", vm.name)
         else:
           ip = vm.primary_ip4.address.split('/')[0]
-      if service.device:
-        dev = nb.dcim.devices.get(service.device.id)
+      if dev_ref:
+        dev = nb.dcim.devices.get(dev_ref.id)
         if dev.primary_ip4 == None:
-          warn("found service with device without primary ip address", service.device.name)
+          warn("found service with device without primary ip address", dev.name)
         else:
           ip = dev.primary_ip4.address.split('/')[0]
 
