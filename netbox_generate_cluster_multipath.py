@@ -52,6 +52,7 @@ for vm in vms:
     mps.append({
         'name': f"vm-{uuid}",
         'wwid': wwid,
+        'description': str(vm.name),
         })
 
 mps.sort(key=lambda x: x['name'])
@@ -64,3 +65,4 @@ else:
     for mp in mps:
         print(" - name:", mp['name'])
         print("   wwid:", mp['wwid'])
+        print("   description:", mp['description'])
