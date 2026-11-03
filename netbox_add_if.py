@@ -41,6 +41,7 @@ def main():
   parser.add_argument('-l', '--label', help='Physical interface label (invalid for virtual interfaces)')
   parser.add_argument('-f', '--fqdn', help='FQDN for IP address')
   parser.add_argument('-P', '--parent', help='Set parent interface')
+  parser.add_argument('-B', '--bridge', help='Set parent bridge interface (on the same device or VM)')
   parser.add_argument('-n', '--net', help='Manualy select preffix (for interfaces without VLANs, eg. tunnels)', default=None)
   parser.add_argument('-D', '--no-dns-name', help='Don\'t assign DNS name to IP address', default=False, action='store_true')
 
@@ -86,6 +87,16 @@ def main():
     if len(parent_ifaces) > 1:
       warn('duplicit parent interfaces found. using first iterface')
     parent_iface = list(parent_ifaces)[0]
+
+  # validate bridge interface, if any
+  bridge_iface = None
+  if args.bridge != None:
+    if vm != None:
+      bridge_iface = nb.virtualization.interfaces.get(virtual_machine=args.host, name=args.bridge)
+    if dev != None:
+      bridge_iface = nb.dcim.interfaces.get(device=args.host, name=args.bridge)
+    if bridge_iface == None:
+      fail("non-existing bridge interface specified", args.bridge)
 
   # validate all lacp interfaces
   bond_ifaces = []
@@ -155,8 +166,6 @@ def main():
   }
 
   # optional arguments
-  if args.mac != None:
-    iface_data['mac_address'] = args.mac
   if args.mtu != None:
     iface_data['mtu'] = args.mtu
   if args.management_only != None:
@@ -167,6 +176,8 @@ def main():
     iface_data['label'] = args.label
   if parent_iface != None:
     iface_data['parent'] = parent_iface.id
+  if bridge_iface != None:
+    iface_data['bridge'] = bridge_iface.id
 
   # access mode interface
   if args.mode == 'access':
@@ -198,7 +209,20 @@ def main():
   if dev != None:
     iface_data['device'] = dev.id
     iface_type = 'dcim.interface'
+
     iface = nb.dcim.interfaces.create(iface_data)
+
+  # Since NetBox 4.2, MAC addresses are separate objects. Assign the MAC
+  # object to the interface and designate it as the interface's primary MAC.
+  if args.mac != None:
+    mac = nb.dcim.mac_addresses.create({
+            'mac_address': args.mac,
+            'assigned_object_type': iface_type,
+            'assigned_object_id': iface.id,
+            })
+    iface.primary_mac_address = mac.id
+    if iface.save() == False:
+      fail("failed to declare MAC address as primary")
 
   # create ip address and assign to interface
   if iface_addr_masked != None:

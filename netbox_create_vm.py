@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from netbox_custom_common import custom_field_value
+
 from sys import stderr,exit,argv
 import os,ipaddress,random,pynetbox,argparse,ast,re
 from pprint import pprint
@@ -44,7 +46,7 @@ def assign_lun_for_cluster(nb, cluster):
   assigned_luns = []
   vms = nb.virtualization.virtual_machines.filter(cluster=cluster)
   for vm in vms:
-    assigned_luns.append(vm.custom_fields['storage_id'])
+    assigned_luns.append(custom_field_value(vm.custom_fields['storage_id']))
   for lun in range(1, 500):
     if lun not in assigned_luns:
       return lun
@@ -55,10 +57,11 @@ def assign_lun_for_cluster(nb, cluster):
 def test_lun_uniqness(nb, cluster, lun, assigned_vm_id):
   vms = nb.virtualization.virtual_machines.filter(cluster=cluster)
   for vm in vms:
-    if vm.custom_fields['storage_id'] == lun and vm.id != assigned_vm_id:
+    storage_id = custom_field_value(vm.custom_fields['storage_id'])
+    if storage_id == lun and vm.id != assigned_vm_id:
       warn('lun was assigned to different vm object...', vm)
       return False
-    if vm.id == assigned_vm_id and vm.custom_fields['storage_id'] != lun:
+    if vm.id == assigned_vm_id and storage_id != lun:
       warn('vm got assigned different lun...')
       return False
   return True
@@ -68,11 +71,12 @@ def test_uuid_uniqness(nb, uuid, short=False):
   uuids = []
   short_uuids = []
   for vm in nb.virtualization.virtual_machines.all():
-    if not vm.custom_fields['uuid']:
+    vm_uuid = custom_field_value(vm.custom_fields['uuid'])
+    if not vm_uuid:
       warn('vm without uuid', vm.name)
       continue
-    uuids.append(vm.custom_fields['uuid'])
-    short_uuids.append(vm.custom_fields['uuid'].split('-')[0])
+    uuids.append(vm_uuid)
+    short_uuids.append(vm_uuid.split('-')[0])
 
   # test uniqeness
   if uuid in uuids:
@@ -98,7 +102,7 @@ parser.add_argument('-S', '--storage-type', help='[cf] Storage type. How will hy
 parser.add_argument('-D', '--storage-device', help='[cf] Storage device name. Must exist as device with "storage" or "cluster_node" roles under same site. Assign both devices for DRBD. (eg. "sto-1" or "srv-xxx-1")', nargs="+", required=True)
 parser.add_argument('-P', '--storage-pool', help='[cf] Storage pool. Either vg name, or storage class. (eg. "vg0", "mixed", "fast", "slow", ...)', default='mixed')
 parser.add_argument('-L', '--storage-fixed-lun', help='[cf] Fixed LUN/DRBD Res ID assignment. Avoid using this. LUN will be automatically assigned by this script.', type=int)
-parser.add_argument('-v', '--vlan-id', help='Vlan for primary IP address (within site)', required=True, type=int)
+parser.add_argument('-v', '--vlan-id', help='Vlan for primary IP address (within site)', type=int)
 parser.add_argument('-p', '--platform', help='Platform slug (defaults to "ubuntu24")', default='ubuntu24')
 parser.add_argument('-B', '--batch', help='Run in batch mode. Don\'t ask for confirmations or rollbacks', default=False, action='store_true')
 parser.add_argument('-m', '--mac-addr', help='Manually select primary interface MAC address. By defaults generates MAC from 52:54:00 OUI')
@@ -119,7 +123,7 @@ if args.ram_size <= 50:
   fail("Too little ram?")
 if args.disk_size <= 1:
   fail("Too little disk space?")
-if not args.vlan_id in range (2, 4094 +1):
+if args.vlan_id and not args.vlan_id in range (2, 4094 +1):
   fail("VLAN-ID should be between 2 and 4094")
 if not args.cpus in range(1, 40):
   fail("How many CPU cores??")
@@ -175,10 +179,11 @@ debug("- uuid", vm_uuid)
 # and build list of storage_devices_ids
 storage_devices_ids = []
 for storage_device in storage_devices:
-  if not storage_device.custom_fields['storage_valid_pools']:
+  valid_pools = custom_field_value(storage_device.custom_fields['storage_valid_pools'])
+  if not valid_pools:
     fail("no storage pools defined for storage", storage_device)
-  if not args.storage_pool in storage_device.custom_fields['storage_valid_pools']:
-    fail("storage pool", args.storage_pool, "is not valid for", storage_device, "valid are", storage_device.custom_fields['storage_valid_pools'])
+  if not args.storage_pool in valid_pools:
+    fail("storage pool", args.storage_pool, "is not valid for", storage_device, "valid are", valid_pools)
   storage_devices_ids.append(storage_device.id)
 debug("-", args.disk_size,"GBs on storage pool", args.storage_pool, "storage(s)", storage_devices)
 
@@ -221,7 +226,12 @@ if not cluster:
   fail("no such cluster")
 
 # find network prefix with specified vlan
-net = nb.ipam.prefixes.get(vlan_vid=args.vlan_id)
+if args.vlan_id:
+  net = nb.ipam.prefixes.get(vlan_vid=args.vlan_id)
+elif args.ip_addr:
+  net = nb.ipam.prefixes.get(contains=args.ip_addr)
+else:
+  fail("either vlan or ip-addr must be specified")
 if not net:
   fail("no such vlan")
 debug("- network", net.description)
@@ -229,17 +239,17 @@ debug("- network", net.description)
 if args.mac_addr:
   # test user supplied mac address
   mac = args.mac_addr
-  iface = nb.virtualization.interfaces.get(mac_address=mac)
-  if iface:
-    fail("interface with same mac address already exists")
   if not re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', mac):
     fail("invalid mac address specified")
+  mac_objects = nb.dcim.mac_addresses.filter(mac_address=mac)
+  if len(mac_objects) > 0:
+    fail("MAC address already exists")
 else:
   # generate and verify uniqueness of mac address
   for _ in range(10):
     mac = generate_mac()
-    iface = nb.virtualization.interfaces.get(mac_address=mac)
-    if not iface:
+    mac_objects = nb.dcim.mac_addresses.filter(mac_address=mac)
+    if len(mac_objects) == 0:
       break
   else:
     fail("couldnt generate unique mac after 10 tries")
@@ -252,7 +262,7 @@ ip_data = {
 
 if args.ip_addr:
   # check if ip address belongs to same network as vlan and if it's free
-  available_ips = net.available_ips.list()
+  available_ips = net.available_ips.list(limit=1000)
   if not any(ip.address == args.ip_addr for ip in available_ips):
     rollback("selected IP address is not valid. valid addresses are ", available_ips)
   ip_data['address'] = args.ip_addr
@@ -293,7 +303,7 @@ vm_data = {
   "platform": platform.id,
   "vcpus": args.cpus,
   "memory": args.ram_size,
-  "disk": args.disk_size,
+  "disk": args.disk_size*1024,
   "custom_fields": {
     "uuid": vm_uuid,
     "storage_device": storage_devices_ids,
@@ -320,11 +330,12 @@ if not test_lun_uniqness(nb, args.cluster, lun, vm.id):
 iface_data = {
   "virtual_machine": vm.id,
   "name": "eth0",
-  "type": 'virtual',
-  "mac_address": mac,
-  "mode": "access",
-  "untagged_vlan": net.vlan.id
+  "type": 'virtual'
 }
+if net.vlan:
+  iface_data["mode"] = "access"
+  iface_data["untagged_vlan"] = net.vlan.id
+
 try:
   iface = nb.virtualization.interfaces.create(iface_data)
 except Exception as e:
@@ -333,6 +344,25 @@ except Exception as e:
 if not iface:
   rollback("failed to create interface")
 ROLLBACK_LIST.insert(1,iface)
+
+# Create the MAC as a separate NetBox object, assign it to eth0, and make it
+# the interface's primary MAC address.
+try:
+  mac_object = nb.dcim.mac_addresses.create({
+    "mac_address": mac,
+    "assigned_object_type": "virtualization.vminterface",
+    "assigned_object_id": iface.id,
+  })
+except Exception as e:
+  mac_object = None
+  warn(e)
+if not mac_object:
+  rollback("failed to create MAC address")
+ROLLBACK_LIST.insert(1, mac_object)
+
+iface.primary_mac_address = mac_object.id
+if iface.save() == False:
+  rollback("failed to declare MAC address as primary")
 debug("- mac", mac)
 
 # associate interface with vm

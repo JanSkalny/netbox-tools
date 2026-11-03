@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from netbox_custom_common import custom_field_value
+
 from sys import stderr,exit,argv
 import json,yaml,os,ipaddress,random,pynetbox,argparse
 import requests as req
@@ -27,8 +29,8 @@ vm = nb.virtualization.virtual_machines.get(name=args.fqdn)
 if not(vm):
     fail('no such vm')
 
-if vm['custom_fields']['storage_wwid'] != args.wwid:
-    warn(vm, vm['custom_fields']['storage_wwid'], "->", args.wwid)
+if custom_field_value(vm['custom_fields']['storage_wwid']) != args.wwid:
+    warn(vm, custom_field_value(vm['custom_fields']['storage_wwid']), "->", args.wwid)
     if not args.dry_run:
         vm['custom_fields']['storage_wwid'] = args.wwid
         vm.save()
