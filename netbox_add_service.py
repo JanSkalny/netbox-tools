@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import stderr,exit,argv
-import json,yaml,os,ipaddress,random,pynetbox
-import requests as req
-from pprint import pprint
-from uuid import uuid4
+import os,pynetbox
 
 # display error & bail out
 def fail(*messages):
@@ -47,8 +44,17 @@ def main():
   dev = nb.dcim.devices.get(name=FQDN)
 
   # make sure it exists
-  if vm == None and dev == None:
+  if vm is None and dev is None:
       fail("no such vm or device")
+  if vm is not None and dev is not None:
+      fail("both a vm and a device have this name; service parent is ambiguous")
+
+  if vm is not None:
+    parent = vm
+    parent_type = 'virtualization.virtualmachine'
+  else:
+    parent = dev
+    parent_type = 'dcim.device'
 
   # make sure the service does not already exists
   test_services = nb.ipam.services.filter(name=SERVICE, protocol=PROTO, port=PORT)
@@ -56,27 +62,20 @@ def main():
       fail("service already exists")
 
   # make sure if similary named service exists, it is on same device or vm
-  test_services = nb.ipam.services.filter(name=SERVICE)
-  if len(test_services) > 0:
-    if test_services[0].virtual_machine:
-      if vm == None or test_services[0].virtual_machine.id != vm.id:
-        fail("services with requested name must reside on vm '%s'" % test_services[0].virtual_machine.name)
-    elif test_services[0].device:
-      if dev == None or test_services[0].device.id != dev.id:
-        fail("service(s) with requested name must reside on device '%s'" % test_services[0].device.name)
-    else:
-      pprint(dict(test_services[0]))
-      fail("wut wut!")
+  for service in nb.ipam.services.filter(name=SERVICE):
+    if (service.parent_object_type != parent_type or
+        service.parent_object_id != parent.id):
+      fail("services with requested name must reside on %s '%s'" % (
+        service.parent_object_type, service.parent,
+      ))
 
   req = {
           'name': SERVICE,
           'protocol': PROTO,
           'ports': [PORT],
+          'parent_object_type': parent_type,
+          'parent_object_id': parent.id,
           }
-  if vm != None:
-    req['virtual_machine'] = vm.id
-  if dev != None:
-    req['device'] = dev.id
 
   nb.ipam.services.create(req)
  
