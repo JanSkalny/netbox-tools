@@ -47,13 +47,14 @@ else:
   
 # decide storage device based on storage_type, pool and tech_name
 disk_blk = None
-st = custom_field_value(vm.custom_fields['storage_type'])
+st = custom_field_value(vm.custom_fields.get('storage_type'))
 if st == 'lvm':
   disk_blk = f'/dev/{custom_field_value(vm.custom_fields["storage_pool"])}/{tech_name}'
 elif st == 'drbd':
   disk_blk = f'/dev/drbd/by-res/{tech_name}/0'
 elif st == 'multipath':
-  disk_blk = f'/dev/mapper/{tech_name}'
+  wwid = custom_field_value(vm.custom_fields.get('storage_wwid'))
+  disk_blk = f'/dev/disk/by-id/dm-uuid-mpath-{wwid}' if wwid else f'/dev/mapper/{tech_name}'
 
 # choose cluster node for preseeding
 cluster_nodes = nb.dcim.devices.filter(cluster_id=vm['cluster']['id'])
@@ -112,6 +113,19 @@ res.update({
 service_group = custom_field_value(vm.custom_fields.get('service_group'))
 if service_group:
   res['service_group'] = service_group
+
+for field in ('storage_type', 'storage_device', 'storage_id', 'storage_pool',
+              'storage_wwid'):
+  value = custom_field_value(vm.custom_fields.get(field))
+  if field == 'storage_device':
+    if isinstance(value, list):
+      value = value[0] if value else None
+    if isinstance(value, dict):
+      value = value.get('name')
+    elif value is not None:
+      value = getattr(value, 'name', value)
+  if value is not None and value != '' and value != []:
+    res[field] = value
 
 print("# generated from netbox. do not change manually")
 print(yaml.dump({'virtual':res}))
