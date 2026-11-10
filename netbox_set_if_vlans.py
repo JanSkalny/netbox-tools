@@ -158,7 +158,8 @@ def main():
     if args.access_vlan:
       access_id = list(requested_ids)[0]
       access_vid = list(requested_vids)[0]
-      if iface.untagged_vlan != access_id:
+      current_access_id = iface.untagged_vlan.id if iface.untagged_vlan else None
+      if current_access_id != access_id:
         if args.no_change:
           print(args.host, iface.name, "set access vlan to", access_vid)
         else:
