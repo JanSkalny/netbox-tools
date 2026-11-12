@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import json
 import os
+import sys
 from sys import exit, stderr
 
 import pynetbox
@@ -10,7 +12,8 @@ import pynetbox
 from netbox_filter_common import add_filter_argument, filter_endpoint
 
 
-OUTPUT_FIELDS = ('name', 'phone', 'email', 'id', 'json')
+OUTPUT_FIELDS = ('name', 'phone', 'email', 'id', 'json', 'csv', 'tsv')
+TABLE_FIELDS = ('id', 'name', 'email', 'phone', 'description')
 TENANT_OBJECT_TYPE = 'tenancy.tenant'
 
 
@@ -63,8 +66,14 @@ def main():
       base_filters=filters,
     )
 
-  for contact in contacts:
-    output_contact(contact, args.output)
+  if args.output in ('csv', 'tsv'):
+    writer = csv.writer(sys.stdout, delimiter='\t' if args.output == 'tsv' else ',')
+    writer.writerow(TABLE_FIELDS)
+    for contact in contacts:
+      writer.writerow(getattr(contact, field, '') for field in TABLE_FIELDS)
+  else:
+    for contact in contacts:
+      output_contact(contact, args.output)
 
 
 if __name__ == '__main__':

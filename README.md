@@ -127,13 +127,39 @@ branch-tagged image produced by `build.sh`.
 ### `netbox_list_contacts.py`
  - list contacts, displaying their names by default
  - optionally filter contacts by tenant slug with `--tenant`
- - use `--output name|phone|email|id|json` to select the output
+ - use `--output name|phone|email|id|json|csv|tsv` to select the output
+ - CSV and TSV output include a header and columns `id,name,email,phone,description`
+ - CSV example: `./netbox_list_contacts.py --output csv > contacts.csv`
+ - TSV example: `./netbox_list_contacts.py --output tsv > contacts.tsv`
  - example: `./netbox_list_contacts.py --tenant example-tenant --output email`
+
+### `netbox_list_contact_assigmnets.py`
+ - list tenant contact assignments as TSV with a header: `id`, `tenant`, `role`
+ - `id` is the contact ID; tenant and role are slugs (an unset role is empty)
+ - optionally combine `--tenant` (tenant slug) and `--contact` (contact ID or exact name; contacts have no slug)
+ - example: `./netbox_list_contact_assigmnets.py --tenant example-tenant --contact 123 > assignments.tsv`
+
+### `netbox_assign_contact.py`
+ - assign a contact to a tenant: `./netbox_assign_contact.py CONTACT_ID TENANT [ROLE]`
+ - alternatively select by exact email or phone (only one): `./netbox_assign_contact.py --email jane@example.com example-tenant technical` or `./netbox_assign_contact.py --phone +421900123456 example-tenant`
+ - missing or multiple matching contacts cause an error without assigning
+ - prints the existing assignment ID if already assigned, otherwise creates the assignment and prints its ID
+ - use `-a` / `--append` to create another assignment for a different role; an existing assignment with the same role is reused (omitting ROLE matches assignments without a role)
+ - example: `./netbox_assign_contact.py -a 123 example-tenant billing`
+ - use `-n` / `--dry-run` to report whether an assignment would be created without saving; combines with `-a`
 
 ### `netbox_find_contact.py`
  - find a contact by exact name, phone, or email, displaying its ID by default
  - use `--output name|phone|email|id|json` to select the output
  - example: `./netbox_find_contact.py "Jane Example" --output json`
+
+### `netbox_update_contact.py`
+ - update a contact by ID with one or more of `--name`, `--description`, `--email`, and `--phone`
+ - only supplied fields are updated; pass an empty string to clear an optional field
+ - prints `field: old -> new` for changed fields; unchanged fields produce no output
+ - use `-n` / `--dry-run` to show changes without saving, marked with `(dry run)`
+ - use `-Z` / `--no-empty` to silently skip changes that would clear non-empty fields while applying other changes (also applies during dry runs)
+ - example: `./netbox_update_contact.py 123 --email "jane@example.com" --phone "+421900123456" -n`
 
 ### `netbox_create_contact.py`
  - create a contact; only `--name` is required
