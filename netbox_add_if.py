@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import stderr,exit,argv
-import json,yaml,os,ipaddress,random,pynetbox,argparse
-import requests as req
+import json,os,ipaddress,random,pynetbox,argparse
 from pprint import pprint
 from uuid import uuid4
 
@@ -28,9 +27,11 @@ def main():
   parser.add_argument('-t', '--tenant', help='Tenant name (defaults to NETBOX_DEFAULT_TENANT env)', default=os.getenv('NETBOX_DEFAULT_TENANT'))
   parser.add_argument('-H', '--host', help='Device or VM name', required=True)
   parser.add_argument('-v', '--vlan', nargs="+", help='Interface VLAN(s)', type=int)
-  parser.add_argument('-a', '--address', help='Usable IP address within given VLAN, provide the N-th address (net address + number)', type=int)
+  parser.add_argument('-a', '--address', help='IP address in CIDR notation, or N-th address within the VLAN/--net prefix (net address + number)')
   parser.add_argument('-i', '--iface', help='Interface name', required=True)
-  parser.add_argument('-m', '--mac', help='Interface MAC address (xx:xx:xx:xx:xx:xx format)')
+  mac_options = parser.add_mutually_exclusive_group()
+  mac_options.add_argument('-m', '--mac', help='Interface MAC address (xx:xx:xx:xx:xx:xx format)')
+  mac_options.add_argument('--random-mac', action='store_true', help='Generate and assign a random MAC address')
   parser.add_argument('-o', '--mode', help='Interface mode (eg. tagged, tagged-all, access. defaults to access if one vlan is specified, or tagged if more')
   parser.add_argument('-M', '--mtu', help='Interface MTU (in bytes, default is unspecified)', type=int)
   parser.add_argument('-y', '--type', help='Interface type (defaults to virtual)', default='virtual')
@@ -42,10 +43,21 @@ def main():
   parser.add_argument('-f', '--fqdn', help='FQDN for IP address')
   parser.add_argument('-P', '--parent', help='Set parent interface')
   parser.add_argument('-B', '--bridge', help='Set parent bridge interface (on the same device or VM)')
-  parser.add_argument('-n', '--net', help='Manualy select preffix (for interfaces without VLANs, eg. tunnels)', default=None)
+  parser.add_argument('--net', help='Manualy select preffix (for interfaces without VLANs, eg. tunnels)', default=None)
+  parser.add_argument('-n', '--dry-run', action='store_true', help='Show planned changes without saving')
   parser.add_argument('-D', '--no-dns-name', help='Don\'t assign DNS name to IP address', default=False, action='store_true')
 
   args = parser.parse_args()
+
+  explicit_address = None
+  if args.address is not None:
+    try:
+      if '/' in args.address:
+        explicit_address = ipaddress.ip_interface(args.address)
+      else:
+        args.address = int(args.address)
+    except ValueError:
+      parser.error('--address must be an integer offset or an IP address in CIDR notation')
 
   # connect to netbox
   nb = pynetbox.api(args.api_url, args.token)
@@ -68,7 +80,7 @@ def main():
     args.mode = 'tagged'
 
   # access interface must have exactly one vlan
-  if args.mode == 'access' and (len(args.vlan) > 1 or args.vlan == None):
+  if args.mode == 'access' and (args.vlan is None or len(args.vlan) != 1):
     fail("access mode requires exactly one vlan")
 
   # if bond interface is specified, lag mode is required
@@ -83,7 +95,7 @@ def main():
     if dev != None:
       parent_ifaces = nb.dcim.interfaces.filter(device=args.host, name=args.parent)
     if parent_ifaces == None or len(parent_ifaces) == 0:
-      fail("non-existing parent interface specified", parent)
+      fail("non-existing parent interface specified", args.parent)
     if len(parent_ifaces) > 1:
       warn('duplicit parent interfaces found. using first iterface')
     parent_iface = list(parent_ifaces)[0]
@@ -125,7 +137,10 @@ def main():
   # validate ip no and segment
   iface_addr_masked = None
   net = None
-  if args.address != None:
+  if explicit_address is not None:
+    iface_addr = explicit_address.ip
+    iface_addr_masked = str(explicit_address)
+  elif args.address != None:
     # use static prefix selection
     if not args.vlan or len(args.vlan) == 0:
       if not args.net:
@@ -150,13 +165,14 @@ def main():
     iface_addr = net_addr[args.address]
     iface_addr_masked = "%s/%d" % (iface_addr, net_addr.prefixlen)
 
+  if iface_addr_masked is not None:
     # make sure this address is free
     test_addr = nb.ipam.ip_addresses.get(address=iface_addr)
     if test_addr != None:
         fail("address already assigned")
 
-  # generate only for virtual machine interface
-  if args.mac == None and vm != None:
+  # generate a MAC only when explicitly requested
+  if args.random_mac:
     args.mac = generate_mac()
 
   iface_data = {
@@ -201,6 +217,22 @@ def main():
         fail("invalid vid specified", vid)
       iface_data['tagged_vlans'].append(vlan.id)
 
+  if args.dry_run:
+    iface_data['virtual_machine' if vm is not None else 'device'] = (vm if vm is not None else dev).id
+    print('Would create interface (dry run): ' + json.dumps(iface_data, ensure_ascii=False, sort_keys=True))
+    if args.mac is not None:
+      print('Would create and assign primary MAC to new interface (dry run): ' + args.mac)
+    if iface_addr_masked is not None:
+      ip_preview = {'address': iface_addr_masked, 'family': iface_addr.version, 'assigned_interface': args.iface}
+      if not args.no_dns_name:
+        ip_preview['dns_name'] = args.fqdn or args.host
+      print('Would create IP address (dry run): ' + json.dumps(ip_preview, ensure_ascii=False, sort_keys=True))
+      if args.primary:
+        print(f'Would set {args.host} primary_ip{iface_addr.version} to {iface_addr_masked} (dry run)')
+    for bond_iface in bond_ifaces:
+      print(f'Would set interface {bond_iface.id} LAG to new interface {args.iface} (dry run)')
+    return
+
   # create interface object
   if vm != None:
     iface_data['virtual_machine'] = vm.id
@@ -231,7 +263,7 @@ def main():
       fqdn = args.fqdn
     ip_data = {
             'address': iface_addr_masked,
-            'family': 4,
+            'family': iface_addr.version,
             'assigned_object_type': iface_type,
             'assigned_object_id': iface.id,
             }
@@ -241,10 +273,10 @@ def main():
 
     if args.primary:
       if dev:
-        dev.primary_ip4 = ip.id
+        setattr(dev, f'primary_ip{iface_addr.version}', ip.id)
         dev.save()
       if vm:
-        vm.primary_ip4 = ip.id
+        setattr(vm, f'primary_ip{iface_addr.version}', ip.id)
         vm.save()
 
   # update bonded interfaces to point to this interface

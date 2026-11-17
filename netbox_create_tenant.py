@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 from sys import exit, stderr
 
@@ -15,6 +16,7 @@ def fail(*messages):
 def main():
   parser = argparse.ArgumentParser(description='Create a NetBox tenant.')
   parser.add_argument('name', help='Tenant name')
+  parser.add_argument('-n', '--dry-run', action='store_true', help='Show planned changes without saving')
   parser.add_argument('-s', '--slug', help='Tenant slug (defaults to the lowercase name with spaces replaced by dashes)')
   parser.add_argument('-g', '--tenant-group', help='Tenant group slug')
   parser.add_argument('-T', '--token', help='NetBox API Token (defaults to NETBOX_TOKEN env)', default=os.getenv('NETBOX_TOKEN'))
@@ -37,6 +39,10 @@ def main():
     if not tenant_group:
       fail('no such tenant group:', args.tenant_group)
     tenant_data['group'] = tenant_group.id
+
+  if args.dry_run:
+    print('Would create tenant (dry run): ' + json.dumps(tenant_data, ensure_ascii=False, sort_keys=True))
+    return
 
   tenant = nb.tenancy.tenants.create(tenant_data)
   print(tenant.slug)

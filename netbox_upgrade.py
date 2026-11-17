@@ -20,7 +20,7 @@ parser.add_argument('-f', '--upgrade-fw', help='Update last_upgrade_fw field', d
 parser.add_argument('-F', '--firmware', help='Set firmware version to specified value', default=False)
 parser.add_argument('-a', '--upgrade-app', help='Update last_upgrade_app field', default=False, action='store_true')
 parser.add_argument('-o', '--upgrade-os', help='Update last_upgrade_os field', default=False, action='store_true')
-parser.add_argument('-n', '--no-change', help='Show preview and don\'t modify anything', default=False, action='store_true')
+parser.add_argument('-n', '--dry-run', help='Show preview and don\'t modify anything', default=False, action='store_true')
 parser.add_argument('fqdn', help='FQDN associated with VM or Device')
 
 args = parser.parse_args()
@@ -76,7 +76,7 @@ if args.upgrade_fw and args.firmware:
 if len(changed_fields) == 0:
     print("no changes")
 else:
-    if not args.no_change:
+    if not args.dry_run:
         x.save()
     else:
         print("not saving changes")

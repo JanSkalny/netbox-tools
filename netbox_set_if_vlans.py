@@ -50,7 +50,7 @@ def main():
   parser.add_argument('-x', '--set-mode', help='Override interface mode to either access or tagged. (defaults to false)', action='store_true')
   parser.add_argument('-V', '--vlans', help='VLAN list in Cisco compatible notation. eg. 1-9,20,30-39')
   parser.add_argument('-v', '--access-vlan', help='Access VLAN number eg. 123')
-  parser.add_argument('-n', '--no-change', help='Don\'t change anything in netbox, just show what would be done', action='store_true')
+  parser.add_argument('-n', '--dry-run', help='Don\'t change anything in netbox, just show what would be done', action='store_true')
 
   args = parser.parse_args()
 
@@ -116,9 +116,9 @@ def main():
   for iface in ifaces:
     # make sure interface mode is correct
     if args.vlans:
-      iface_ensure_mode(iface, 'tagged', args.set_mode, args.no_change)
+      iface_ensure_mode(iface, 'tagged', args.set_mode, args.dry_run)
     if args.access_vlan:
-      iface_ensure_mode(iface, 'access', args.set_mode, args.no_change)
+      iface_ensure_mode(iface, 'access', args.set_mode, args.dry_run)
 
     # tagged interface
     if args.vlans:
@@ -140,7 +140,7 @@ def main():
         added_vids = set(requested_vids).difference(set(iface_vids))
 
         # if we do, and we want to...
-        if not args.no_change:
+        if not args.dry_run:
           if added_vids:
             print(args.host, iface.name, "added vlans:", added_vids)
           if removed_vids:
@@ -160,7 +160,7 @@ def main():
       access_vid = list(requested_vids)[0]
       current_access_id = iface.untagged_vlan.id if iface.untagged_vlan else None
       if current_access_id != access_id:
-        if args.no_change:
+        if args.dry_run:
           print(args.host, iface.name, "set access vlan to", access_vid)
         else:
           iface.untagged_vlan = access_id

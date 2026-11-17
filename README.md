@@ -22,6 +22,11 @@ Build the image and load the helper function:
 source ./activate.example
 ```
 
+`build.sh` builds both `linux/arm64` and `linux/amd64` and loads them into the
+local Docker image store with the branch and `latest` tags. It requires Docker
+Buildx and the containerd image store (enabled by default in Docker Desktop).
+The script does not push images to a registry.
+
 The helper forwards the NetBox environment variables from your current shell.
 Run any tool by passing its script name and arguments:
 
@@ -34,8 +39,16 @@ By default the helper uses `netbox-tools:latest`. Set `NETBOX_TOOLS_TAG` to run 
 branch-tagged image produced by `build.sh`.
 
 ## Description and usage
+### Dry runs
+ - `netbox_create_device.py`, `netbox_create_vm.py`, `netbox_add_if.py`, and `netbox_add_service.py` accept `-n` / `--dry-run` to validate inputs and show planned changes without saving
+ - device and VM names use `-N` / `--name`; `-n` now selects dry-run mode
+ - interface prefix selection uses `--net`; its former `-n` shorthand now selects dry-run mode
+ - VM dry runs show the currently available IP; generated UUIDs/MACs and address availability may differ on a later run
+ - example: `./netbox_create_device.py --name srv-example-1 --site example-site --device-type example-model -n`
+
 ### `netbox_add_if.py`
  - add interface and allocate IP address from VLAN (if specified)
+ - use `-a 192.0.2.10/24` to assign an explicit address without a prefix lookup; `--net 192.0.2.0/24 -a 10` and VLAN-based address offsets remain supported
  - use `-B BRIDGE` or `--bridge BRIDGE` to assign an existing parent bridge interface on the same device or VM; `-P/--parent` sets the separate parent interface relationship
  - example: `./netbox_add_if.py -H srv-example-1 -i eth0 -B br0`
 
@@ -54,24 +67,46 @@ branch-tagged image produced by `build.sh`.
  - and tag interface (and it's LAG members) with existing VLANs
  - example: `./netbox_set_if_vlans.py srv-example-1 bond0 1,10,20-39,100`
 
+### `netbox_create_device.py`
+ - create a device with status `active` and print its ID
+ - requires `--name`, `--site`, and `--device-type`; `--role` (alias `--device-role`) defaults to `server`
+ - site, role, device type, and optional `--tenant` accept a slug or numeric ID; optionally accepts `--description`
+ - optional `--ram-size` (alias `--ram`, MB), `--disk-size` (alias `--disk`, GB), and `-C` / `--cpus` (alias `--cpu`, CPU cores) accept positive integers; omitted resources are not sent and have no CLI defaults
+ - resources are stored in device custom fields named `ram_size`, `disk_size`, and `cpus`, respectively; the corresponding fields must already exist as Integer fields assigned to `dcim.device` in NetBox (the project previously defined no device hardware field names)
+ - `-r` still selects the role and `-d` still sets the description; `-n` / `--dry-run` previews the full payload without saving and does not validate custom-field definitions against NetBox
+ - example: `./netbox_create_device.py --name srv-example-1 --site example-site --device-type example-model --tenant example-tenant`
+ - resource preview: `./netbox_create_device.py --name srv-example-1 --site example-site --device-type example-model --ram-size 32768 --disk-size 960 --cpus 16 --dry-run`
+
 ### `netbox_create_vm.py`
+ - `--without-cluster` skips cluster lookup, assignment and UUID generation/validation; rejects `-c` / `--cluster` and `-u` / `--uuid` and ignores `NETBOX_DEFAULT_CLUSTER`. Site is required via `-s` / `--site` or `NETBOX_DEFAULT_SITE`. Storage LUN allocation and conflict checks use the site when no cluster is assigned.
+ - `--without-storage` skips storage device/pool validation, LUN allocation and storage custom fields; rejects `-S`, `-D`, `-P`, `-L`. RAM (`-r` / `--ram-size`) and disk size (`-d` / `--disk-size`) become optional and are still accepted when supplied.
+ - `--without-networking` (alias `--without-netowrking`) skips IP, MAC and interface setup; rejects `-v`, `-m`, `-i`, `-f` and allows a name without FQDN
+ - these flags can be combined; RAM and disk size remain required
  - create new VM with "eth0" interface, allocate ip address and create tcp/22 service
  - for usage, see `./netbox_create_vm.py -h`
 
 ### `netbox_create_tenant_group.py`
  - create a tenant group; its slug defaults to the lowercase name with spaces replaced by dashes
+ - use `-n` / `--dry-run` to validate and show planned changes without saving
  - example: `./netbox_create_tenant_group.py "Example Group"`
 
 ### `netbox_create_tenant.py`
  - create a tenant, optionally assigning it to a tenant group by slug
+ - use `-n` / `--dry-run` to validate and show planned changes without saving
  - example: `./netbox_create_tenant.py "Example Tenant" --tenant-group example-group`
 
 ### Filtering list commands
- - `netbox_list_tenants.py`, `netbox_list_tenant_groups.py`, `netbox_list_ips.py`, `netbox_list_prefixes.py`, `netbox_list_vrfs.py`, `netbox_list_contacts.py`, `netbox_list_vms.py`, and `netbox_list_vms_fqdns.py` accept repeatable `--filter KEY=VALUE` options
+ - `netbox_list_tenants.py`, `netbox_list_tenant_groups.py`, `netbox_list_ips.py`, `netbox_list_prefixes.py`, `netbox_list_vrfs.py`, `netbox_list_contacts.py`, `netbox_list_devices.py`, `netbox_list_vms.py`, and `netbox_list_vms_fqdns.py` accept repeatable `--filter KEY=VALUE` options
  - filters use NetBox REST API names; custom fields use the `cf_` prefix
  - boolean custom-field filters accept `1`/`0`, `true`/`false`, `yes`/`no`, or `on`/`off`
  - custom-field negation uses the `__n` suffix and includes objects where the field is unset
  - `netbox_list_custom.py` is not a collection query: it lists fields on one identified object, so API filters do not apply
+
+### `netbox_list_devices.py`
+ - list device names, one per line; defaults to status `active`
+ - filter with `-t` / `--tenant`, `--site`, or `-r` / `--role` (slug or ID), and `-s` / `--status`
+ - accepts repeatable `--filter KEY=VALUE`, including custom fields; `--filter status=...` overrides the default status
+ - example: `./netbox_list_devices.py --site example-site --role server`
 
 ### `netbox_list_tenants.py`
  - list tenant slugs (or names with `--names`), optionally including their group slugs with `--with-groups`
@@ -88,6 +123,12 @@ branch-tagged image produced by `build.sh`.
  - list IP addresses, optionally filtered by tenant slug or repeatable NetBox API filters
  - use `--output address|id|json` to select the output; the default is `address`
  - example: `./netbox_list_ips.py --tenant example-tenant --filter status=active --output json`
+
+### `netbox_find_available_ip.py`
+ - print the first available IPv4 or IPv6 address in CIDR notation without allocating it
+ - requires an existing NetBox prefix; optionally filter by tenant slug (`--tenant`) or VRF name (`--vrf`)
+ - exit with status 1 if the prefix is missing, ambiguous, or full
+ - example: `./netbox_find_available_ip.py 192.0.2.0/24`
 
 ### `netbox_create_prefix.py`
  - create an IPv4 or IPv6 prefix for a tenant and print the new object's ID

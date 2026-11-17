@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from sys import stderr,exit,argv
-import os,pynetbox
+import argparse,json,os,pynetbox
 
 # display error & bail out
 def fail(*messages):
@@ -19,14 +19,19 @@ Add service to existing device or vm.
 
 
 def main():
-  # parse inputs
-  if len(argv) < 4:
-      fail("error, invalid number of args!\n%s" % doc) 
-
-  FQDN = argv[1]
-  SERVICE = argv[2] 
-  PROTO,PORT = argv[3].split('/')
-  PORT = int(PORT)
+  parser = argparse.ArgumentParser(description='Add a service to an existing device or VM.')
+  parser.add_argument('host', help='Device or VM name')
+  parser.add_argument('service', help='Service name')
+  parser.add_argument('protocol_port', help='Protocol and port, e.g. tcp/443')
+  parser.add_argument('-n', '--dry-run', action='store_true', help='Show planned changes without saving')
+  args = parser.parse_args()
+  FQDN = args.host
+  SERVICE = args.service
+  try:
+    PROTO, PORT = args.protocol_port.split('/')
+    PORT = int(PORT)
+  except ValueError:
+    parser.error('expected protocol/port, e.g. tcp/443')
   PROTO = PROTO.lower()
 
 
@@ -77,6 +82,9 @@ def main():
           'parent_object_id': parent.id,
           }
 
+  if args.dry_run:
+    print('Would create service (dry run): ' + json.dumps(req, ensure_ascii=False, sort_keys=True))
+    return
   nb.ipam.services.create(req)
  
 if __name__ == "__main__":

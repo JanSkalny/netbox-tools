@@ -11,9 +11,11 @@ fi
 # Docker tags cannot contain slashes (common in branch names).
 tag="${branch//\//-}"
 
-docker build \
-    --tag "netbox-tools:$tag" \
-    --tag netbox-tools:latest \
+docker buildx build \
+    --platform linux/arm64,linux/amd64 \
+    --load \
+    --tag "janskalny/netbox-tools:$tag" \
+    --tag janskalny/netbox-tools:latest \
     "$script_dir"
 
-printf 'Built netbox-tools:%s and netbox-tools:latest\n' "$tag"
+printf 'Built janskalny/netbox-tools:%s and janskalny/netbox-tools:latest\n' "$tag"
